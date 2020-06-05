@@ -6,6 +6,7 @@
 
 # Data files: CSV, XML, Excel, etc.
 *.csv
+!Data/*.csv
 *.xml
 *.xls
 *.xlsx

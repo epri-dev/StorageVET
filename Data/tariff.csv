@@ -1,0 +1,7 @@
+Billing Period,Start Month,End Month,Start Time,End Time,Excluding Start Time,Excluding End Time,Weekday?,Value,Charge,Name_optional
+1,1,5,1,24,,,2,0.05323,Energy,0 indicates that the period applies to weekends
+2,1,5,1,24,,,2,26.75,Demand,1 indicates that the period applies to weekdays
+3,6,9,1,24,,,2,0.05668,energy,2 indicates that the period applies to both weekdays and weeknds
+4,6,9,1,24,,,2,26.75,demand,Please note that start and end ranges are inclusive.
+5,10,12,1,24,,,2,0.05323,energy,Times are in units of hour-ending
+6,10,12,1,24,,,2,26.75,DEMAND,The only possible values for Charge are: 'demand' or 'energy' (not case sensitive)
