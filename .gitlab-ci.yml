@@ -1,0 +1,32 @@
+image: python:3.6
+
+variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+stages:
+  - test
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+    - echo "... Checking runner specifications ..."
+    - uname
+    - apt-get update -q -y
+    - pip install virtualenv
+    - virtualenv storagevet-venv
+    - source storagevet-venv/bin/activate
+
+pytest:
+  stage: test
+  script:
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - file ./test/datasets/000-001-timeseries.csv
+    - python -m pytest test
+  tags:
+    - 'docker'
+  # only:
+  #   - merge_requests

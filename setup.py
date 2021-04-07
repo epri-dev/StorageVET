@@ -28,32 +28,32 @@ Copyright (c) 2021, Electric Power Research Institute
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
-runStorageVET.py
-
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
+Use `python setup.py develop --uninstall` to uninstall development
+Use `python setup.py develop` to install in development mode
+See https://python-packaging-tutorial.readthedocs.io/en/latest/setup_py.html#running-setup-py
+for more
 """
-import argparse
-from storagevet.StorageVET import StorageVET
+from setuptools import setup, find_packages
+import pathlib
 
 
-if __name__ == '__main__':
-    """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
+# The directory containing this file
+HERE = pathlib.Path(__file__).parent
 
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
+# The text of the README file
+README = (HERE / "README.md").read_text()
 
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+setup(name='storagevet',
+      version='1.1',
+      description='Storage value estimation tool',
+      url='#',
+      long_description=README,
+      author='Halley Nathwani',
+      author_email='hnathwani@epri.com',
+      license='EPRI',
+      classifiers=[
+              "License :: EPRI License",
+              "Programming Language :: Python"
+      ],
+      packages=find_packages(),
+      zip_safe=False)

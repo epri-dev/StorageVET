@@ -6,11 +6,11 @@
 
 # Data files: CSV, XML, Excel, etc.
 *.csv
-!Data/*.csv
 *.xml
 *.xls
 *.xlsx
 *.xlsm
+*.json
 
 # IDE config files / folders
 *.idea

@@ -27,33 +27,20 @@ Copyright (c) 2021, Electric Power Research Institute
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-"""
-runStorageVET.py
-
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
-"""
-import argparse
-from storagevet.StorageVET import StorageVET
+import pytest
 
 
-if __name__ == '__main__':
-    """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
+def pytest_addoption(parser):
+    parser.addoption(
+        "--runslow", action="store_true", default=False, help="run slow tests"
+    )
 
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
 
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        # --runslow given in cli: do not skip slow tests
+        return
+    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)

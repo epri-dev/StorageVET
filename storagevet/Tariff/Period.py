@@ -27,33 +27,45 @@ Copyright (c) 2021, Electric Power Research Institute
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-"""
-runStorageVET.py
+class Period:
+    def __init__(self, number):
+        self.number = number
+        self.tier_list = []
+        self.highest_rate = 0
 
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
-"""
-import argparse
-from storagevet.StorageVET import StorageVET
+    def get_tier(self, number):
+        """"
+        Args:
+            number (Int): index for which tier to return
 
+        Returns:
+            self.tier_list (EnergyTier): tier based on argument index
 
-if __name__ == '__main__':
-    """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
+        """
+        return self.tier_list[number]
 
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
+    def add(self, tier):
+        """"
+        Args:
+            tier (EnergyTier): new tier to be appended to tier_list
 
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+        """
+        self.tier_list.append(tier)
+
+    def tostring(self):
+        """
+        Pretty print
+
+        """
+        print("Period " + str(self.number) + "-------------------------=")
+
+    def get_highest_rate(self):
+        """
+        Sets the highest rate out of the tier_list
+
+        """
+        for tier in self.tier_list:
+            if tier.get_rate() is None:
+                continue
+            elif tier.get_rate() > self.highest_rate:
+                self.highest_rate = tier.get_rate()

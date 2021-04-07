@@ -28,32 +28,41 @@ Copyright (c) 2021, Electric Power Research Institute
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
-runStorageVET.py
+This file tests market participation analysis cases. All tests should pass.
 
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
+The tests in this file can be run with DERVET and StorageVET, so make sure to
+update TEST_PROGRAM with the lower case string name of the program that you
+would like the tests to run on.
+
 """
-import argparse
-from storagevet.StorageVET import StorageVET
+import pytest
+from test.TestingLib import assert_ran
+from pathlib import Path
+
+DIR = Path("./test/model_params/")
 
 
-if __name__ == '__main__':
+@pytest.mark.slow
+def test_batt():
+    assert_ran(DIR / "026-DA_FR_SR_NSR_battery_month.csv")
+
+
+def test_pv_ice():
+    assert_ran(DIR / "027-DA_FR_SR_NSR_pv_ice_month.csv")
+
+
+def test_batt_pv_ice():
+    assert_ran(DIR / "028-DA_FR_SR_NSR_battery_pv_ice_month.csv")
+
+
+@pytest.mark.slow
+def test_batt_ts_constraints():
+    assert_ran(DIR / "029-DA_FR_SR_NSR_battery_month_ts_constraints.csv")
+
+
+def xtest_da_lf_fr_battery_combined_market():
+    """ Tests a case were FR and LF are the same model. Requires that the resulting profits and
+    costs are the same for FR and LF
+
     """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
-
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
-
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+    assert_ran(r" ", )  # TODO

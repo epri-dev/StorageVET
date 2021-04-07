@@ -1,4 +1,4 @@
-Year,Month,Fuel Price ($/MillionBTU),Backup Price ($/kWh),Backup Energy (kWh),DR Months (y/n),DR Capacity (kW),DR Capacity Price ($/kW),DR Energy Price ($/kWh),RA Capacity Price ($/kW)
+Year,Month,Natural Gas Price ($/MillionBTU),Backup Price ($/kWh),Backup Energy (kWh),DR Months (y/n),DR Capacity (kW),DR Capacity Price ($/kW),DR Energy Price ($/kWh),RA Capacity Price ($/kW)
 2017,1,10,0,0,0,0,100,20,30
 2017,2,10,1000,10,0,0,100,20,30
 2017,3,10,1000,10,0,0,100,20,30

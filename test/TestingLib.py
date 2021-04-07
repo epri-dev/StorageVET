@@ -27,33 +27,43 @@ Copyright (c) 2021, Electric Power Research Institute
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-"""
-runStorageVET.py
-
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
-"""
-import argparse
 from storagevet.StorageVET import StorageVET
+import os
+import pandas as pd
 
 
-if __name__ == '__main__':
-    """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
+def run_case(model_param_location: str):
+    print(f"Testing {model_param_location}...")
+    case = StorageVET(model_param_location, True)
+    results = case.solve()
+    print(results.dir_abs_path)
+    return results
 
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
 
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+def check_initialization(model_param_location: str):
+    print(f"Testing {model_param_location}...")
+    case = StorageVET(model_param_location, True)
+    return case
+
+
+def assert_file_exists(model_results, results_file_name='timeseries_results'):
+    if model_results.sensitivity_df.empty:
+        check_for_file = model_results.dir_abs_path / f'{results_file_name}{model_results.csv_label}.csv'
+        assert os.path.isfile(check_for_file), f'No {results_file_name} found at {check_for_file}'
+    else:
+        for index in model_results.instances.keys():
+            check_for_file = model_results.dir_abs_path / str(index) / f'{results_file_name}{model_results.csv_label}.csv'
+            assert os.path.isfile(check_for_file), f'No {results_file_name} found at {check_for_file}'
+
+
+def assert_ran(model_param_location: str):
+    results = run_case(model_param_location)
+    assert_file_exists(results)
+
+
+def assert_ran_with_services(model_param_location: str, services: list):
+    results = run_case(model_param_location)
+    assert_file_exists(results)
+    value_stream_keys = results.instances[0].service_agg.value_streams.keys()
+    print(set(value_stream_keys))
+    assert set(services) == set(value_stream_keys)

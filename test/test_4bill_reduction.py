@@ -28,32 +28,48 @@ Copyright (c) 2021, Electric Power Research Institute
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 """
-runStorageVET.py
+This file tests bill reduction analysis cases. All tests should pass.
 
-This Python script serves as the initial launch point executing the Python-based version of StorageVET
-(AKA StorageVET 2.0 or SVETpy).
+The tests in this file can be run with DERVET and StorageVET, so make sure to
+update TEST_PROGRAM with the lower case string name of the program that you
+would like the tests to run on.
+
 """
-import argparse
-from storagevet.StorageVET import StorageVET
+from test.TestingLib import assert_ran, run_case
+from pathlib import Path
 
 
-if __name__ == '__main__':
-    """
-        the Main section for runStorageVET to run by itself without the GUI
-    """
+DIR = Path('./test/model_params/')
 
-    parser = argparse.ArgumentParser(prog='StorageVET.py',
-                                     description='The Electric Power Research Institute\'s energy storage system ' +
-                                                 'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
-                                            'All Rights Reserved.')
-    parser.add_argument('parameters_filename', type=str,
-                        help='specify the filename of the CSV file defining the PARAMETERS dataframe')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='specify this flag for verbose output during execution')
-    arguments = parser.parse_args()
 
-    case = StorageVET(arguments.parameters_filename, arguments.verbose)
-    case.solve()
+def test_ice():
+    assert_ran(DIR / "030-billreduction_ice_month.csv")
+
+
+def test_controllable_load_month():
+    assert_ran(DIR / "031-billreduction_battery_controllableload_month.csv")
+
+
+def test_ice_pv():
+    assert_ran(DIR / "032-pv_ice_bill_reduction.csv")
+
+
+def test_ice_ice():
+    assert_ran(DIR / "033-ice_ice_bill_reduction.csv")
+
+
+def test_pv_ice_ice():
+    assert_ran(DIR / "034-pv_ice_ice_bill_reduction.csv")
+
+
+def test_pv_pv_ice():
+    assert_ran(DIR / "035-pv_pv_ice_bill_reduction.csv")
+
+
+def test_battery():
+    """tests fixed size with retail ETS and DCM services through 1 battery"""
+    assert_ran(DIR / "004-fixed_size_battery_retailets_dcm.csv")
+
+
+# def test_pv():
+#     assert_ran(DIR / "036-pv_bill_reduction.csv")
