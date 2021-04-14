@@ -1,0 +1,7 @@
+Billing Period,Start Month,End Month,Start Time,End Time,Excluding Start Time,Excluding End Time,Weekday?,Value,Charge,Name_optional
+1,1,5,1,24,,,2,0.05323,Energy,
+2,1,5,1,24,,,2,19.05,Demand,
+3,6,9,1,24,,,2,0.05668,energy,
+4,6,9,1,24,,,2,26.75,demand,
+5,10,12,1,24,,,2,0.05323,energy,
+6,10,12,1,24,,,2,10.63,DEMAND,

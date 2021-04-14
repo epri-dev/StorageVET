@@ -4,13 +4,11 @@
 */Plots/
 */Results/
 
-# Data files: CSV, XML, Excel, etc.
-*.csv
+# Data files: XML, Excel, etc.
 *.xml
 *.xls
 *.xlsx
 *.xlsm
-*.json
 
 # IDE config files / folders
 *.idea
