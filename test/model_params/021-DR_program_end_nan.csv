@@ -92,6 +92,6 @@ DR,days,10,days,int,"[0, 366] (or 365 in non-leap-years)",N/A,None,Number of DR 
 DR,length,4,hours,string/int,"[0, 24]",N/A,None,"Length of a DR event (leave this value blank, or as 'nan', if you want to define DR events by the end time instead)",.,no,
 DR,weekend,0,y/n,bool,"{0,1}",N/A,None,DR program active on weekends,.,no,
 DR,program_start_hour,11,hour,int,"[0, 24] (must be before program_end_hour)",N/A,None,Hour beginning start of DR period,.,no,
-DR,program_end_hour,nan,hour,string/int,"[0, 24] (must be after program_start_hour)",N/A,None,"Hour ending end of DR period (leave this value blank, or as 'nan', if you want to define DR events by the length instead)",.,no,
+DR,program_end_hour,,hour,string/int,"[0, 24] (must be after program_start_hour)",N/A,None,"Hour ending end of DR period (leave this value blank, or as 'nan', if you want to define DR events by the length instead)",.,no,
 DR,day_ahead,1,y/n,bool,"{0,1}",N/A,None,DR programs are either scheduled the day of or a day ahead,.,no,
 DR,growth,0,%/yr,float,"[0, 100]",N/A,None,Growth rate of Demand Response capacity rate,.,no,

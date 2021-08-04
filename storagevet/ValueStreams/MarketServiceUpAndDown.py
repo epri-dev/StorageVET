@@ -59,10 +59,10 @@ class MarketServiceUpAndDown(ValueStream):
         self.full_name = full_name
         self.combined_market = params['CombinedMarket']
         self.duration = params['duration']
-        self.energy_growth = params['energyprice_growth']/100
+        self.energy_growth = params['energyprice_growth']
         self.eod_avg = params['eod']
         self.eou_avg = params['eou']
-        self.growth = params['growth']/100
+        self.growth = params['growth']
         self.price_down = params['regd_price']
         self.price_up = params['regu_price']
         self.price_energy = params['energy_price']

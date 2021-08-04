@@ -64,7 +64,7 @@ class Deferral(ValueStream):
         self.year_failed = params['last_year'].year + 1
         self.min_years = params.get('min_year_objective', 0)
         self.load = params['load']  # deferral load
-        self.growth = params['growth']/100  # Growth Rate of deferral load (%/yr)
+        self.growth = params['growth']  # Growth Rate of deferral load (%/yr)
         self.price = params['price']  # $/yr
 
         self.p_min = 0
@@ -329,10 +329,12 @@ class Deferral(ValueStream):
 
         proforma = pd.DataFrame(data={self.name + ' Value': np.zeros(len(yr_index))}, index=yr_index)
 
-        for year in yr_index:
+        for year in years:
 
-            if year.year < self.year_failed:
-                proforma.loc[year, self.name + ' Value'] = self.price
+            if year >= self.year_failed:
+                proforma.loc[pd.Period(year=year, freq='y'), self.name + ' Value'] = 0
+            else:
+                proforma.loc[pd.Period(year=year, freq='y'), self.name + ' Value'] = self.price
         # apply inflation rates
         proforma = apply_inflation_rate_func(proforma, None, min(opt_years))
 

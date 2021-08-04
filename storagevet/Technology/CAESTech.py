@@ -148,6 +148,8 @@ class CAES(EnergyStorage):
             fuel_costs_df.loc[pd.Period(year=year, freq='y'), fuel_col_name] = -np.sum(fuel_price_sub*self.heat_rate_high*1e3/1e6)
         # fill forward
         fuel_costs_df = fill_forward_func(fuel_costs_df, None)
+        # apply inflation rates
+        fuel_costs_df = apply_inflation_rate_func(fuel_costs_df, None, min(analysis_years))
         # append will super class's proforma
         pro_forma = pd.concat([pro_forma, fuel_costs_df], axis=1)
         return pro_forma

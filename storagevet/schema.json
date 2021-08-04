@@ -21,7 +21,7 @@
                     "growth": {
                         "cba": "n",
                         "max": "100.0",
-                        "min": "-100.0",
+                        "min": "0.0",
                         "type": "float",
                         "unit": "%/year"
                     },
@@ -39,7 +39,7 @@
                 "keys": {
                     "growth": {
                         "max": "100",
-                        "min": "-100",
+                        "min": "0",
                         "type": "float",
                         "unit": "%"
                     },
@@ -715,7 +715,8 @@
                     "n": {
                         "allowed_values": "month|year|BOUND",
                         "cba": "n",
-                        "min": "2",
+                        "max": "366",
+                        "min": "0",
                         "type": "string/int",
                         "unit": "hours"
                     },
@@ -743,7 +744,7 @@
                     "def_growth": {
                         "cba": "n",
                         "max": "100.0",
-                        "min": "-100.0",
+                        "min": "0.0",
                         "type": "float",
                         "unit": "%"
                     },

@@ -86,6 +86,6 @@ Scenario,.,incl_thermal_load,0,y/n,bool,"{0,1}",,None,Flag to include one or mor
 Battery,1,ecc%,0,%,float,"[0, 100] ",,,the economic carrying cost percent,.,no,
 Battery,1,state_of_health,73,%,float,,,,State of heath at end of life (percentage of original energy capacity that will tigger a replacement of the equipement),.,no,
 Battery,1,replacement_construction_time,1,years,int,"[1, inf)",,None,"The time, in years, it takes finish DER equipement replacement construction",.,no,
-Battery,1,cycle_life_table_eol_condition,80,%,int,"[0, 100] ",,None,End of life condition used to make the cycle_life input table.,.,no,
 Finance,.,ecc_mode,0,y/n,bool,"{0,1}",,None,Setting to TRUE will tell the cost benefit analysis to do the Economic Carrying Cost of your DERs,.,no,
-Finance,.,customer_tariff_filename,./test/datasets/000-002-tariff.csv,,string,valid file path to a customer tariff file,,None,Data file that defines the tariff stucture to be applied for customer side of the meter,.,no,
+Finance,.,customer_tariff_filename,.\Data\tariff.csv,,string,valid file path to a customer tariff file,,None,Data file that defines the tariff stucture to be applied for customer side of the meter,.,no,
+Battery,.,cycle_life_table_eol_condition,80,%,int,"[0, 100] ",,None,End of life condition used to make the cycle_life input table.,.,no,

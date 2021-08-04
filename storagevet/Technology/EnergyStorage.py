@@ -493,53 +493,37 @@ class EnergyStorage(DER):
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
         if self.variables_df.empty:
             return pro_forma
-        optimization_years = self.variables_df.index.year.unique()
+        analysis_years = self.variables_df.index.year.unique()
         tech_id = self.unique_tech_id()
-        startup_costs = pd.DataFrame()
         # OM COSTS
         om_costs = pd.DataFrame()
-        cumulative_energy_dispatch_kw = pd.DataFrame()
         dis = self.variables_df['dis']
-        dis_column_name = tech_id + ' Cumulative Energy Dispatch (kW)'
-        variable_column_name = tech_id + ' Variable O&M Cost'
-        for year in optimization_years:
+        for year in analysis_years:
+            # add fixed o&m costs
             index_yr = pd.Period(year=year, freq='y')
             # add fixed o&m costs
-            om_costs.loc[index_yr, self.fixed_column_name()] = -self.fixedOM_perKW
+            try:
+                fixed_om = -self.get_fixed_om().value
+            except AttributeError:
+                fixed_om = -self.get_fixed_om()
+            om_costs.loc[index_yr, self.fixed_column_name()] = fixed_om
             # add variable o&m costs
             dis_sub = dis.loc[dis.index.year == year]
-            om_costs.loc[index_yr, variable_column_name] = -self.variable_om
-            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(dis_sub)
+            om_costs.loc[index_yr, tech_id + ' Variable O&M Cost'] = -self.variable_om * self.dt * np.sum(dis_sub)
 
             # add startup costs
             if self.incl_startup:
                 start_c_sub = self.variables_df['start_c'].loc[self.variables_df['start_c'].index.year == year]
-                startup_costs.loc[index_yr, tech_id + ' Start Charging Costs'] = -np.sum(start_c_sub * self.p_start_ch)
+                om_costs.loc[index_yr, tech_id + ' Start Charging Costs'] = -np.sum(start_c_sub * self.p_start_ch)
                 start_d_sub = self.variables_df['start_d'].loc[self.variables_df['start_d'].index.year == year]
-                startup_costs.loc[index_yr, tech_id + ' Start Discharging Costs'] = -np.sum(start_d_sub * self.p_start_dis)
+                om_costs.loc[index_yr, tech_id + ' Start Discharging Costs'] = -np.sum(start_d_sub * self.p_start_dis)
 
-        # fill forward (escalate rates)
-        if self.incl_startup:
-            startup_costs = fill_forward_func(startup_costs, None)
-        om_costs = fill_forward_func(om_costs, None, is_om_cost = True)
-
-        # interpolate cumulative energy dispatch between analysis years
-        #   be careful to not include years labeled as Strings (CAPEX)
-        years_list = list(filter(lambda x: not(type(x) is str), om_costs.index))
-        analysis_start_year = min(years_list).year
-        analysis_end_year = max(years_list).year
-        cumulative_energy_dispatch_kw = self.interpolate_energy_dispatch(
-            cumulative_energy_dispatch_kw, analysis_start_year, analysis_end_year, None)
-        # calculate om costs in dollars, as rate * energy
-        # fixed om
-        om_costs.loc[:, self.fixed_column_name()] = om_costs.loc[:, self.fixed_column_name()] * self.dis_max_rated
-        # variable om
-        om_costs.loc[:, variable_column_name] = om_costs.loc[:, variable_column_name] * self.dt * cumulative_energy_dispatch_kw.loc[:, dis_column_name]
-
-        # append with super class's proforma
+        # fill forward
+        om_costs = fill_forward_func(om_costs, None)
+        # apply inflation rates
+        om_costs = apply_inflation_rate_func(om_costs, None, min(analysis_years))
+        # append will super class's proforma
         pro_forma = pd.concat([pro_forma, om_costs], axis=1)
-        if self.incl_startup:
-            pro_forma = pd.concat([pro_forma, startup_costs], axis=1)
         return pro_forma
 
     def verbose_results(self):

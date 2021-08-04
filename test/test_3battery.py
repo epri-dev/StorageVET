@@ -39,7 +39,6 @@ would like the tests to run on.
 """
 import pytest
 from pathlib import Path
-import numpy as np
 from test.TestingLib import *
 
 DIR = Path('./test/model_params/')
@@ -80,34 +79,8 @@ def test_da_fr_month():
     assert_ran(DIR / f'001-DA_FR_battery_month{CSV}')
 
 
-class TestDaDeferral:
-    """ Day Ahead Energy Time Shift with Deferral"""
-    def setup_class(self):
-        self.results = run_case(DIR / f'003-DA_Deferral_battery_month{CSV}')
-        self.test_proforma_df = self.results.proforma_df()
-
-    def test_deferral_specific_results_exists(self):
-        assert_file_exists(self.results, 'deferral_results')
-
-    def test_proforma_exists(self):
-        assert_file_exists(self.results, 'pro_forma')
-
-    def test_number_of_analysis_years(self):  # should run for years: 2017 2023 2024
-        analysis_year = self.results.instances[0].opt_years
-        assert len(analysis_year) == 3
-
-    def test_analysis_years_are_expected(self):  # should run for years: 2017 2023 2024
-        analysis_year = self.results.instances[0].opt_years
-        assert sorted(analysis_year) == sorted([2017, 2023, 2024])
-
-    def test_proforma_values_are_not_zero(self):  # values from 2017 through 2023
-        value = self.test_proforma_df.loc[self.test_proforma_df.index != 'CAPEX Year', 'Deferral Value']
-        assert np.all(value[value.index <= pd.Period(2023, freq='y')] != 0)
-
-    def test_proforma_values_inflate_from_start(self):  # expected inflation (3%)
-        value = self.test_proforma_df.loc[self.test_proforma_df.index != 'CAPEX Year', 'Deferral Value']
-        expected_inflation_after_max_opt_yr = [1.03**year for year in range(2023-2017+1)]
-        assert np.all(value[value.index <= pd.Period(2023, freq='y')].values/value.values[0] == expected_inflation_after_max_opt_yr)
+def test_da_deferral_month():  # should run for years: 2017 2023 2024
+    assert_ran_with_services(DIR / f'003-DA_Deferral_battery_month{CSV}', ['Deferral', 'DA'])
 
 
 @pytest.mark.slow
@@ -141,65 +114,9 @@ def test_da_ra_month2():
     assert_ran_with_services(DIR / f'014-DA_RApeakyear_battery_month{CSV}', ['DA', 'RA'])
 
 
-class TestDayAheadDemandResponse:
-    """ Day Ahead Demand Response program model"""
-
-    def setup_class(self):
-        self.results = run_case(DIR / f'015-DA_DRdayahead_battery_month{CSV}')
-        self.results_instance = self.results.instances[0]
-        timeseries = self.results_instance.time_series_data
-        self.discharge_constraint = timeseries.loc[:, "DR Discharge Min (kW)"]
-
-    def test_services_were_part_of_problem(self):
-        assert_usecase_considered_services(self.results, ['DA', 'DR'])
-
-    def test_qualifying_commitment_calculation(self):
-        dr_obj = self.results_instance.service_agg.value_streams['DR']
-        assert np.all(dr_obj.qc[dr_obj.qc.index.month.isin([6,7,9])] == 10) and np.all(dr_obj.qc[dr_obj.qc.index.month==8] == 20)
-
-    def test_number_of_events(self):  # num of events == 10  length of event == 4  dt == 1
-        active_constraint_indx = self.discharge_constraint[self.discharge_constraint != 0].index
-        assert len(active_constraint_indx) == 10 * 4 * 1
-
-    def test_expected_discharge1(self):
-        dr_events = self.discharge_constraint[self.discharge_constraint != 0]
-        assert np.all(dr_events[dr_events.index.month.isin([6,7,9])] == 10)
-
-    def test_expected_discharge2(self):
-        dr_events = self.discharge_constraint[self.discharge_constraint != 0]
-        assert np.all(dr_events[dr_events.index.month == 8] == 20)
-
-    def test_no_events_occured_in_non_active_months(self):
-        assert np.all(self.discharge_constraint[~self.discharge_constraint.index.month.isin([6,7,8,9])] == 0)
+def test_da_dr_month():
+    assert_ran_with_services(DIR / f'015-DA_DRdayahead_battery_month{CSV}', ['DA', 'DR'])
 
 
-class TestDayOfDemandResponse:
-    """ Day Ahead Demand Response program model"""
-
-    def setup_class(self):
-        self.results = run_case(DIR / f'016-DA_DRdayof_battery_month{CSV}')
-        self.results_instance = self.results.instances[0]
-        self.timeseries = self.results_instance.time_series_data
-        self.discharge_constraint = self.timeseries.loc[:, "DR Possible Event (y/n)"]
-
-    def test_services_were_part_of_problem(self):
-        assert_usecase_considered_services(self.results, ['DA', 'DR'])
-
-    def test_qualifying_energy_calculation(self):
-        dr_obj = self.results_instance.service_agg.value_streams['DR']
-        assert np.all(dr_obj.qe[dr_obj.qe.index.month.isin([6,7,9])] == 40) and np.all(dr_obj.qe[dr_obj.qe.index.month == 8] == 80)
-
-    def test_events_might_occur_when_expected(self):  # active months = 6,7,8,9  active hours = (11 he,14 he) not on weekends
-        active_constraint_indx = self.discharge_constraint[self.discharge_constraint].index
-        assert np.all(active_constraint_indx.month.isin([6,7,8,9]) & active_constraint_indx.hour.isin([10,11,12,13,14]) & (active_constraint_indx.weekday < 5))
-
-    def test_enough_energy_at_start_of_potential_event1(self):  # length of event == 4  last potential start == 14-4=10
-        battery_state_of_energy = self.timeseries.loc[:, "BATTERY: 2mw-5hr State of Energy (kWh)"]
-        soe_start = battery_state_of_energy[(self.discharge_constraint.values) & (self.discharge_constraint.index.hour == 10)]
-        assert np.all(soe_start[soe_start.index.month.isin([6,7,9])] >= 40)
-
-    def test_enough_energy_at_start_of_potential_event2(self):  # length of event == 4  last potential start == 14-4=10
-        battery_state_of_energy = self.timeseries.loc[:, "BATTERY: 2mw-5hr State of Energy (kWh)"]
-        soe_start = battery_state_of_energy[(self.discharge_constraint.values) & (self.discharge_constraint.index.hour == 10)]
-        assert np.all(soe_start[soe_start.index.month == 8] >= 80)
-
+def test_da_dr_month1():
+    assert_ran_with_services(DIR / f'016-DA_DRdayof_battery_month{CSV}', ['DA', 'DR'])

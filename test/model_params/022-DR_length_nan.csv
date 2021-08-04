@@ -89,7 +89,7 @@ Battery,replacement_construction_time,1,years,int,"[1, inf)",,None,"The time, in
 Finance,ecc_mode,0,y/n,bool,"{0,1}",,None,Setting to TRUE will tell the cost benefit analysis to do the Economic Carrying Cost of your DERs,.,no,
 Battery,cycle_life_table_eol_condition,80,%,int,"[0, 100] ",,None,End of life condition used to make the cycle_life input table.,.,no,
 DR,days,10,days,int,"[0, 366] (or 365 in non-leap-years)",N/A,None,Number of DR events per year,yes,no,
-DR,length,nan,hours,string/int,"[0, 24]",N/A,None,"Length of a DR event (leave this value blank, or as 'nan', if you want to define DR events by the end time instead)",.,no,
+DR,length,,hours,string/int,"[0, 24]",N/A,None,"Length of a DR event (leave this value blank, or as 'nan', if you want to define DR events by the end time instead)",.,no,
 DR,weekend,0,y/n,bool,"{0,1}",N/A,None,DR program active on weekends,.,no,
 DR,program_start_hour,11,hour,int,"[0, 24] (must be before program_end_hour)",N/A,None,Hour beginning start of DR period,.,no,
 DR,program_end_hour,14,hour,string/int,"[0, 24] (must be after program_start_hour)",N/A,None,"Hour ending end of DR period (leave this value blank, or as 'nan', if you want to define DR events by the length instead)",.,no,

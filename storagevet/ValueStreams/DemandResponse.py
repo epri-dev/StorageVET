@@ -61,14 +61,11 @@ class DemandResponse(ValueStream):
 
         # add dr specific attributes to object
         self.days = params['days']
-        self.length = params.get('length')  # length of an event
+        self.length = params['length']  # length of an event
         self.weekend = params['weekend']
         self.start_hour = params['program_start_hour']
-        self.end_hour = params.get('program_end_hour')  # last hour of the program
+        self.end_hour = params['program_end_hour']  # last hour of the program
         self.day_ahead = params['day_ahead']  # indicates whether event is scheduled in real-time or day ahead
-
-        # handle length and end_hour attributes here
-        self.fill_dr_event_details()
 
         # timeseries data
         self.system_load = params['system_load']
@@ -87,33 +84,6 @@ class DemandResponse(ValueStream):
         self.discharge_min_constraint = pd.Series()
         self.energy_min_constraint = pd.Series()
         self.possible_event_times = None
-
-    def fill_dr_event_details(self):
-        """ Ensure consistency in length and end_hour attributes
-            This will set the length attribute accordingly if it's None initially
-            This will set the end_hour attribute accordingly if it's None initially
-            Will raise an error if both values are not consistent
-            Note: if both are None an error is raised first in Params class
-        """
-        if isinstance(self.length, str):
-            TellUser.error(f'Demand Response: the value of event length ({self.length}) is not supported')
-            raise ModelParameterError(f'Demand Response: the event value of length ({self.length}) is not supported')
-        if isinstance(self.end_hour, str):
-            TellUser.error(f'Demand Response: the value of program_end_hour ({self.end_hour}) is not supported')
-            raise ModelParameterError(f'Demand Response: the value of program_end_hour ({self.end_hour}) is not supported')
-        if self.length is None:
-            self.length = self.end_hour - self.start_hour + 1
-        elif self.end_hour is None:
-            self.end_hour = self.start_hour + self.length - 1
-
-        # require that LENGTH < END_HOUR - START_HOUR
-        if self.length != self.end_hour - self.start_hour + 1:
-            TellUser.error(f'Demand Response: event length ({self.length}) is not program_end_hour ({self.end_hour}) - program_start_hour ({self.start_hour}). '
-                            + 'This is ambiguous. '
-                            + 'Please provide either program_end_hour or length for day ahead scheduling')
-            raise ModelParameterError(f'Demand Response: event length ({self.length}) is not program_end_hour ({self.end_hour}) - program_start_hour ({self.start_hour}). '
-                            + 'This is ambiguous. '
-                            + 'Please provide either program_end_hour or length for day ahead scheduling')
 
     def grow_drop_data(self, years, frequency, load_growth):
         """ Update variable that hold timeseries data after adding growth data. These method should be called after
@@ -188,6 +158,23 @@ class DemandResponse(ValueStream):
         Returns: index for when the qualifying capacity must apply
 
         """
+        if not self.end_hour and not self.length:
+            TellUser.error('Demand Response: You must provide either program_end_hour or length for day ahead scheduling')
+            raise ParameterError('Demand Response: You must provide either program_end_hour or length for day ahead scheduling')
+        if self.end_hour and self.length:
+            # require that LENGTH < END_HOUR - START_HOUR
+            if self.length != self.end_hour - self.start_hour + 1:
+                TellUser.error('Demand Response: event length is not program_end_hour - program_start_hour.'
+                               + 'Please provide either program_end_hour or length for day ahead scheduling')
+                raise ParameterError('Demand Response: event length is not program_end_hour - program_start_hour.'
+                                + 'Please provide either program_end_hour or length for day ahead scheduling')
+
+        if not self.end_hour:
+            self.end_hour = self.start_hour + self.length - 1
+
+        elif not self.length:
+            self.length = self.end_hour - self.start_hour + 1
+
         index = self.system_load.index
         he = index.hour + 1  # hour ending
 
@@ -232,6 +219,13 @@ class DemandResponse(ValueStream):
         Returns: index for when the qualifying capacity must apply
 
         """
+        if self.end_hour != 'nan' and self.length != 'nan':
+            # require that LENGTH < END_HOUR - START_HOUR
+            if self.length > self.end_hour - self.start_hour + 1:
+                TellUser.error('Demand Response: event length is not program_end_hour - program_start_hour.'
+                               + 'Please provide either program_end_hour or length for day ahead scheduling')
+                raise ParameterError('Demand Response: event length is not program_end_hour - program_start_hour.'
+                                     + 'Please provide either program_end_hour or length for day ahead scheduling')
 
         ##########################
         # FIND DR EVENTS

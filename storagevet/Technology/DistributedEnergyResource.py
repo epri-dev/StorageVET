@@ -367,33 +367,3 @@ class DER:
         pro_forma = pd.DataFrame({self.zero_column_name(): -self.get_capex(solution=True)}, index=['CAPEX Year'])
 
         return pro_forma
-
-    def interpolate_energy_dispatch(self, df, start_year, end_year, interpolation_method):
-        """
-        Interpolates cumulative energy dispatch values between
-        the analysis start_year and end_year, given a dataframe with
-        values only included for optimization years
-
-        Args:
-            df (pd.Dataframe): profroma type df with only years in the index,
-                the years correspond to optimization years
-            start_year (Integer): the project start year
-            end_year (Integer): the project end year
-            interpolation_method (String): defaults to 'linear'
-
-        Returns: a df where the data is interpolated between known values using
-            interpolation_method. Values prior to the first year with data get
-            set to the first year's value. Same for the last year's value.
-        """
-
-        # default to linear interpolation
-        if interpolation_method is None:
-            interpolation_method = 'linear'
-
-        filled_df = pd.DataFrame(index=pd.period_range(start_year, end_year, freq='y'))
-        filled_df = pd.concat([filled_df, df], axis=1)
-
-        filled_df = filled_df.apply(lambda x: x.interpolate(
-            method=interpolation_method, limit_direction='both'), axis=0)
-
-        return filled_df

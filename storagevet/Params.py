@@ -783,7 +783,7 @@ class Params:
         """ Based on what the user has indicated as active (and what the user has not), predict
         whether or not the simulation(s) will have trouble solving.
 
-        Returns (bool): True if there are errors found. False if there are no errors found in the
+        Returns (bool): True if there is no errors found. False if there is errors found in the
         errors log.
 
         """
@@ -804,7 +804,7 @@ class Params:
             return True
 
         if not len(slf.Battery) and not len(slf.PV) and not len(slf.CAES) \
-                and not len(slf.ICE) and slf.Load == None and not other_ders_active:
+                and not len(slf.ICE) and not len(slf.Load) and not other_ders_active:
             TellUser.error('You forgot to select a technology to include in the analysis. ' +
                            'Please define an energy source.')
             return True
@@ -821,12 +821,10 @@ class Params:
                            'infinite time to solve!')
             return True
 
-        if not dervet and len(slf.CAES) and len(slf.Battery):
+        if not dervet and not len(slf.CAES) and not len(slf.Battery):
             TellUser.error("Storage technology CAES and Battery should not be active " +
                            "together in StorageVET.")
-            return True
-
-        return False
+            return False
 
     @classmethod
     def read_referenced_data(cls):
@@ -1005,12 +1003,6 @@ class Params:
                     f"Could not open or could not find {name} at '{filename}' from: {os.getcwd()}")
             else:
                 TellUser.info("Successfully read in: " + filename)
-
-        if name == 'customer_tariff':
-            # for retail tariff file data, redefine the indexes as strings
-            # this ensures a consistent results/simple_monthly_bill.csv file
-            # NOTE: the GUI uses unique strings (not integers) for the Billing Period
-            raw.index = raw.index.astype(str)
 
         return raw
 
@@ -1504,8 +1496,7 @@ class Params:
                                   closed='left')
         temp = pd.DataFrame(index=new_index)
         temp['yr_mo'] = temp.index.to_period('M')
-        column['yr_mo'] = column.index.to_period('M')
-        temp = temp.reset_index().merge(column.reset_index(drop=True), on='yr_mo',
+        temp = temp.reset_index().merge(column.reset_index(), on='yr_mo',
                                         how='left').set_index(new_index)
         return temp[column.columns[0]]
 
@@ -1582,12 +1573,14 @@ class Params:
                 self.record_monthly_error(
                     "Missing 'DR Energy Price ($/kWh)' from monthly input. Please include DR energy prices")
             try:
-                self.DR['dr_months'] = self.monthly_to_timeseries(freq, monthly_data.loc[:,['DR Months (y/n)']])
+                self.DR['dr_months'] = self.monthly_to_timeseries(freq, monthly_data.loc[:,
+                                                                        ['DR Months (y/n)']])
             except KeyError:
                 self.record_monthly_error(
                     "Missing 'DR Months (y/n)' from monthly input. Please include DR months.")
             try:
-                self.DR['dr_cap'] = self.monthly_to_timeseries(freq, monthly_data.loc[:,['DR Capacity (kW)']])
+                self.DR['dr_cap'] = self.monthly_to_timeseries(freq, monthly_data.loc[:,
+                                                                     ['DR Capacity (kW)']])
                 self.DR['cap_monthly'] = monthly_data.loc[:, "DR Capacity (kW)"]
             except KeyError:
                 self.record_monthly_error(
