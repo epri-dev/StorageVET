@@ -91,7 +91,7 @@ def apply_growth(source, rate, source_year, yr, freq):
         new (Series)
     """
     years = yr.year - source_year.year  # difference in years between source and desired yea
-    new = source*(1+rate/100)**years  # apply growth rate to source data
+    new = source*(1+rate)**years  # apply growth rate to source data
     # new.index = new.index + pd.DateOffset(years=1)
     # deal with leap years
     source_leap = is_leap_yr(source_year.year)

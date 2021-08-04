@@ -4,7 +4,7 @@
 */Plots/
 */Results/
 
-# Data files: XML, Excel, etc.
+# Data files: CSV, XML, Excel, etc.
 *.xml
 *.xls
 *.xlsx

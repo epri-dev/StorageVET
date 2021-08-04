@@ -5,7 +5,7 @@ dill==0.3.2
 ecos==2.0.7.post1
 fastcache==1.1.0
 Flask==1.1.2
-flask_cors==3.0.9
+flask_cors==3.0.8
 future==0.18.2
 importlib-metadata==1.7.0
 kiwisolver==1.2.0

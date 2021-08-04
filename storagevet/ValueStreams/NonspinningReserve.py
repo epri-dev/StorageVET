@@ -32,12 +32,12 @@ NonspinningReserve.py
 
 This Python class contains methods and attributes specific for service analysis within StorageVet.
 """
-from storagevet.ValueStreams.MarketServiceDown import MarketServiceDown
+from storagevet.ValueStreams.MarketServiceUp import MarketServiceUp
 import cvxpy as cvx
 import storagevet.Library as Lib
 
 
-class NonspinningReserve(MarketServiceDown):
+class NonspinningReserve(MarketServiceUp):
     """ Nonspinning Reserve. Each service will be daughters of the ValueStream class.
 
     """

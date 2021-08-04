@@ -205,10 +205,13 @@ class Financial:
         sim_monthly_bill = monthly_bill.groupby(level=0).sum()
         for month_yr_index in monthly_bill.index.unique():
             mo_yr_data = monthly_bill.loc[month_yr_index, :]
-            if mo_yr_data['Billing Period'].size == 1:
-              sim_monthly_bill.loc[month_yr_index, 'Billing Period'] = f"[{int(mo_yr_data['Billing Period'])}]"
-            else:
-              sim_monthly_bill.loc[month_yr_index, 'Billing Period'] = f"{mo_yr_data['Billing Period'].values}"
+
+            try:
+                sim_monthly_bill.loc[month_yr_index, 'Billing Period'] = f"{mo_yr_data['Billing Period'].values}"
+            except AttributeError:
+                sim_monthly_bill.loc[month_yr_index, 'Billing Period'] = "['{}']".format(mo_yr_data['Billing Period'])
+
+
         sim_monthly_bill.index.name = 'Month-Year'
         self.monthly_bill = sim_monthly_bill
 
@@ -230,6 +233,10 @@ class Financial:
         Returns: pd.Series of booleans
 
         """
+        if tariff_row.ndim != 1:
+            TellUser.error('Billing Periods must be unique, '
+                           + 'please check the tariff input file')
+            raise TariffError('Please check the retail tariff')
         month_mask = (tariff_row["Start Month"] <= month) & (month <= tariff_row["End Month"])
         time_mask = (tariff_row['Start Time'] <= he_minute) & (he_minute <= tariff_row['End Time'])
         weekday_mask = True
@@ -403,15 +410,19 @@ class Financial:
             df.loc[yr, :] = df.loc[yr, :] * ((1 + escalation_rate) ** t)
         return df
 
-    def fill_non_optimization_years(self, df, escalation_rate):
+    def fill_non_optimization_years(self, df, escalation_rate, is_om_cost = False):
         """
 
         Args:
            df (pd.Dataframe): profroma type df with only years in the index, and those year correspond
             to analysis years
            escalation_rate (float):
+           is_om_cost (boolean): False by default
+               when is_om_cost is True, the value occurring at
+               the minimum opt year will not be changed
 
-        Returns: a df where the data is filled by escalating the previous value
+        Returns: a df where the data is filled by escalating values before and after the
+            optimization years
 
         """
         # if escalation_rate is not given, use user given inflation rate
@@ -419,27 +430,37 @@ class Financial:
             escalation_rate = self.inflation_rate
         filled_df = pd.DataFrame(index=pd.period_range(self.start_year, self.end_year, freq='y'))
         filled_df = pd.concat([filled_df, df], axis=1)
-        # check first analysis year
-        first_analysis_year = min(df.index.values)
-        last_year_opt_results = max(df.index.values)
-        if first_analysis_year != self.start_year:
-            fill_back_years = pd.period_range(self.start_year, first_analysis_year, freq='y')
-            # back fill until you hit start year
-            i = len(fill_back_years) - 1
-            while i > 0:
-                year_with_data = fill_back_years[i]
-                fill_year = fill_back_years[i - 1]
-                prev_years = filled_df.loc[year_with_data, :].copy(deep=True)
-                filled_df.loc[fill_year, :] = prev_years / (1 + escalation_rate)
-                i -= 1
+        first_optimization_year = min(df.index.values)
+        last_optimization_year = max(df.index.values)
+        if not is_om_cost:
+            if first_optimization_year != self.start_year:
+                fill_back_years = pd.period_range(self.start_year, first_optimization_year, freq='y')
+                # back fill until you hit start year
+                i = len(fill_back_years) - 1
+                while i > 0:
+                    year_with_data = fill_back_years[i]
+                    fill_year = fill_back_years[i - 1]
+                    prev_years = filled_df.loc[year_with_data, :].copy(deep=True)
+                    filled_df.loc[fill_year, :] = prev_years / (1 + escalation_rate)
+                    i -= 1
 
         # use linear interpolation for growth in between optimization years
         filled_df = \
             filled_df.apply(lambda x: x.interpolate(method='linear', limit_area='inside'), axis=0)
 
-        # forward fill growth columns with inflation
-        for yr in pd.period_range(last_year_opt_results + 1, self.end_year, freq='y'):
-            filled_df.loc[yr, :] = filled_df.loc[yr - 1, :] * (1 + escalation_rate)
+        if not is_om_cost:
+            # forward fill growth columns with inflation
+            for yr in pd.period_range(last_optimization_year + 1, self.end_year, freq='y'):
+                filled_df.loc[yr, :] = filled_df.loc[yr - 1, :] * (1 + escalation_rate)
+        else:
+            # special case for O&M rates
+            # backward fill
+            filled_df.fillna(method='bfill', inplace=True)
+            # forward fill
+            filled_df.fillna(method='ffill', inplace=True)
+            # apply escalation rate to all values
+            filled_df = self.apply_rate(filled_df, escalation_rate, first_optimization_year.year)
+
         return filled_df
 
     def cost_benefit_report(self, pro_forma):

@@ -42,10 +42,36 @@ from storagevet.ErrorHandling import *
 DIR = Path("./test/model_params")
 
 
+"""
+Tariff File checks
+"""
+
+
 def test_missing_tariff_row():
     # following should fail
-    with pytest.raises(ModelParameterError):
+    with pytest.raises(TariffError):
         check_initialization(DIR/'002-missing_tariff.csv')
+
+
+def test_single_tariff_row():
+    # following should pass
+    run_case(DIR/'051-tariff-single_billing_period_ok.csv')
+
+
+def test_multi_tariff_row():
+    # following should pass
+    run_case(DIR/'052-tariff-multi_billing_periods_ok.csv')
+
+
+def test_repeated_tariff_billing_period():
+    # following should fail
+    with pytest.raises(TariffError):
+        check_initialization(DIR/'053-tariff-repeated-billing-period-index.csv')
+
+
+"""
+Sensitivity checks
+"""
 
 
 def test_number_of_cases_in_sensitivity_analysis():
@@ -73,20 +99,71 @@ DR parameter checks
 """
 
 
-def test_dr_nan_allowed():
-    """ Test if DR allows length DR program end to be defined
-        - the other is allowed to be 'nan'
+def test_dr_length_nan_allowed():
+    """ Test if DR allows length to be nan
     """
     check_initialization(DIR/"022-DR_length_nan.csv")
+
+
+def test_dr_program_end_hour_nan_allowed():
+    """ Test if DR allows program_end_hour to be nan
+    """
     check_initialization(DIR/"021-DR_program_end_nan.csv")
 
 
+def test_dr_length_empty_allowed():
+    """ Test if DR allows length to be empty
+    """
+    check_initialization(DIR/"047-DR_length_empty.csv")
+
+
+def test_dr_program_end_hour_empty_allowed():
+    """ Test if DR allows program_end_hour to be empty
+    """
+    check_initialization(DIR/"046-DR_program_end_empty.csv")
+
+
+def test_dr_length_and_program_end_ok():
+    """ Test that DR allows length and program end
+        - as long as they are compatible
+    """
+    check_initialization(DIR/"044-DR_program_end_with_length_ok.csv")
+
+
+def test_dr_length_and_program_end_error():
+    """ Test that DR does not allow length and program end
+        - if they are not compatible
+    """
+    with pytest.raises(ModelParameterError):
+        run_case(DIR/"045-DR_program_end_with_length_error.csv")
+
+
 def test_dr_two_nans_not_allowed():
-    """ Test if DR allows length DR program end to be defined
-        - the other is allowed to be 'nan'
+    """ Test if DR allows both length and program end to be nan
     """
     with pytest.raises(ModelParameterError):
         check_initialization(DIR/"024-DR_nan_length_prgramd_end_hour.csv")
+
+
+def test_dr_two_empties_not_allowed():
+    """ Test if DR allows both length and program end to be empty
+    """
+    with pytest.raises(ModelParameterError):
+        check_initialization(DIR/"048-DR_empty_length_prgramd_end_hour.csv")
+
+
+def test_dr_length_unsupported_value_types():
+    """ Test that DR does not allow length to be a non-nan string
+    """
+    with pytest.raises(ModelParameterError):
+        run_case(DIR/"049-DR_unsupported_length.csv")
+
+
+def test_dr_end_hour_unsupported_value_types():
+    """ Test that DR does not allow program_end_hour to be a non-nan string
+    """
+    with pytest.raises(ModelParameterError):
+        run_case(DIR/"050-DR_unsupported_program_end_hour.csv")
 
 
 """
@@ -119,3 +196,10 @@ def test_opt_years_not_in_monthly_data():
     """
     with pytest.raises(MonthlyDataError):
         check_initialization(DIR / "039-mutli_opt_years_not_in_monthly_data.csv")
+
+
+def test_no_label_results_key():
+    """ Test if opt_year matching the data in timeseries file is cleared. Opt_years are not
+    continuous
+    """
+    assert_ran(DIR / "042-no_results_label.csv")

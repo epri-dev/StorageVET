@@ -61,7 +61,7 @@ class Result:
         """
         cls.instances = {}
         cls.dir_abs_path = Path(results_params['dir_absolute_path'])
-        cls.csv_label = results_params['label']
+        cls.csv_label = results_params.get('label', '')
         if cls.csv_label == 'nan':
             cls.csv_label = ''
         cls.sensitivity_df = case_definitions

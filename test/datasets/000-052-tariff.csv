@@ -1,0 +1,4 @@
+Billing Period,Start Month,End Month,Start Time,End Time,Excluding Start Time,Excluding End Time,Weekday?,Value,Charge,Name
+1,1,2,1,24,,,2,0.1,Energy,All Hours January Energy Charge (Flat)
+2,2,12,1,24,,,0,0.2,Energy,Weekends FEB-DEC
+3,2,12,1,24,,,1,0.2,Energy,Weekdays FEB-DEC

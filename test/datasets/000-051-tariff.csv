@@ -1,0 +1,2 @@
+Billing Period,Start Month,End Month,Start Time,End Time,Excluding Start Time,Excluding End Time,Weekday?,Value,Charge,Name
+1,1,12,1,24,,,2,0.1,Energy,All Hours Energy Charge (Flat)

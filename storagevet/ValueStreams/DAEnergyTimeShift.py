@@ -52,7 +52,7 @@ class DAEnergyTimeShift(ValueStream):
         """
         ValueStream.__init__(self, 'DA', params)
         self.price = params['price']
-        self.growth = params['growth']  # growth rate of energy prices (%/yr)
+        self.growth = params['growth']/100  # growth rate of energy prices (%/yr)
 
     def grow_drop_data(self, years, frequency, load_growth):
         """ Adds data by growing the given data OR drops any extra data that might have slipped in.
