@@ -14,15 +14,15 @@ These instructions will get you a copy of the project up and running on your loc
 
 #### 3. Activate Python 3.6 environment
 
-On Linux/Mac   
-Note that pip should be associated to a python 3.6 installation  
+On Linux/Mac
+Note that pip should be associated to a python 3.6 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
 source storagevet-venv/bin/activate
 ```
-On Windows  
-Note that pip should be associated to a python 3.6 installation    
+On Windows
+Note that pip should be associated to a python 3.6 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
@@ -36,7 +36,7 @@ conda activate storagevet-venv
 ```
 
 #### 3. Install project dependencies
- 
+
 ```
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
@@ -60,7 +60,7 @@ pip install -e ./storagevet
 ## Versioning
 
 We use [Gitlab](https://gitlab.epri.com/storagevet/storagevet) for versioning.
-This is version 1.1.0.
+This is version 1.1.2
 
 ## Authors
 

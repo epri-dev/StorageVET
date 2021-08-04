@@ -57,7 +57,7 @@ class PV(DER):
         super().__init__(params)
         self.technology_type = "Intermittent Resource"
         self.tag = 'PV'
-        self.growth = params['growth']
+        self.growth = params['growth']/100
         self.curtail = True
         self.gen_per_rated = params['rated gen']
         self.rated_capacity = params['rated_capacity']
@@ -186,8 +186,6 @@ class PV(DER):
 
         """
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
-        if self.variables_df.empty:
-            return pro_forma
         analysis_years = self.variables_df.index.year.unique()
 
         # OM COSTS
@@ -197,8 +195,6 @@ class PV(DER):
             om_costs.loc[pd.Period(year=year, freq='y'), self.fixed_column_name()] = -self.fixed_om
         # fill forward
         om_costs = fill_forward_func(om_costs, None)
-        # apply inflation rates
-        om_costs = apply_inflation_rate_func(om_costs, None, min(analysis_years))
         # append will super class's proforma
         pro_forma = pd.concat([pro_forma, om_costs], axis=1)
         return pro_forma

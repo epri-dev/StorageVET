@@ -236,22 +236,38 @@ class RotatingGenerator(DER):
         tech_id = self.unique_tech_id()
         if self.variables_df.empty:
             return pro_forma
-        analysis_years = self.variables_df.index.year.unique()
+        optimization_years = self.variables_df.index.year.unique()
 
         # OM COSTS
         om_costs = pd.DataFrame()
-        variable_col_name = tech_id + ' Variable O&M Costs'
+        cumulative_energy_dispatch_kw = pd.DataFrame()
         elec = self.variables_df['elec']
-        for year in analysis_years:
-            elec_sub = elec.loc[elec.index.year == year]
+        dis_column_name = tech_id + ' Cumulative Energy Dispatch (kW)'
+        variable_column_name = tech_id + ' Variable O&M Costs'
+        for year in optimization_years:
+            index_yr = pd.Period(year=year, freq='y')
             # add fixed o&m costs
-            om_costs.loc[pd.Period(year=year, freq='y'), self.fixed_column_name()] = -self.fixed_om
+            om_costs.loc[index_yr, self.fixed_column_name()] = -self.fixed_om
             # add variable costs
-            om_costs.loc[pd.Period(year=year, freq='y'), variable_col_name] = -np.sum(self.variable_om * self.dt * elec_sub)
-        # fill forward
-        om_costs = fill_forward_func(om_costs, None)
-        # apply inflation rates
-        om_costs = apply_inflation_rate_func(om_costs, None, min(analysis_years))
-        # append will super class's proforma
+            elec_sub = elec.loc[elec.index.year == year]
+            om_costs.loc[index_yr, variable_column_name] = -self.variable_om
+            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(elec_sub)
+
+        # fill forward (escalate rates)
+        om_costs = fill_forward_func(om_costs, None, is_om_cost = True)
+
+        # interpolate cumulative energy dispatch between analysis years
+        #   be careful to not include years labeled as Strings (CAPEX)
+        years_list = list(filter(lambda x: not(type(x) is str), om_costs.index))
+        analysis_start_year = min(years_list).year
+        analysis_end_year = max(years_list).year
+        cumulative_energy_dispatch_kw = self.interpolate_energy_dispatch(
+            cumulative_energy_dispatch_kw, analysis_start_year, analysis_end_year, None)
+        # calculate om costs in dollars, as rate * energy
+        # fixed om is already in $
+        # variable om
+        om_costs.loc[:, variable_column_name] = om_costs.loc[:, variable_column_name] * self.dt * cumulative_energy_dispatch_kw.loc[:, dis_column_name]
+
+        # append with super class's proforma
         pro_forma = pd.concat([pro_forma, om_costs], axis=1)
         return pro_forma

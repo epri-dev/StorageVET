@@ -157,7 +157,7 @@ class Scenario(object):
         self.opt_years = input_tree.Scenario['opt_years']
         self.incl_binary = input_tree.Scenario['binary']
         self.incl_slack = input_tree.Scenario['slack']
-        self.def_growth = input_tree.Scenario['def_growth']
+        self.def_growth = input_tree.Scenario['def_growth']/100
         self.frequency = input_tree.Scenario['frequency']
 
         # save inputs to be used to initialize classes later

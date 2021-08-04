@@ -5,7 +5,32 @@ Questions and feedback can be submitted to the Electric Power Research Institute
 
 The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/).
 
-## [1.1.0] - 2020-04-29 from 2021-05-31
+## [1.1.2] - 2021-07-09 to 2021-08-03
+### Changed
+- The O&M cost methodology in the proforma was improved
+  - first escalate o&m rates (usually by inflation)
+  - then calculate the cumulative energy dispatch values for optimization years, and use linear interpolation
+  - then multiply the rate by the energy each year to get an o&m cost in dollars
+
+### Fixed
+- make sure that OM cost of PV gets added to proforma
+
+## [1.1.1] - 2021-05-31 to 2021-07-09
+### Changed
+- refactor DR input collection for DRY coding
+- all growth rates have a minimum value of -100 percent
+- Results label can be empty without erroring
+- results/simple_monthly_bill.csv will have consistent output showing the billing periods
+
+### Fixed
+- growth rate for DA energy prices converted to fraction of 1 at initialization only; same for all growth rates
+- corrected the logic and docstrings in Params class bad_active_combo method
+- DR inputs bug: length and end_hour consistency errors
+- Deferral Proforma fill for in-between years
+- corrected UP/Down naming in Market Services
+- single billing period bug for a given month was fixed
+
+## [1.1.0] - 2020-04-29 to 2021-05-31
 ### Added
 - extra print statements/ log reporting around the degredation module in Battery ESS
 
@@ -23,7 +48,7 @@ The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/)
 - proforma bugs: inflation rate application, value fill btw optimization years, back fill of values
 - cost benefit module calculation bugs
 
-## [1.0.2] - 2019-06-10 from 2020-04-29
+## [1.0.2] - 2019-06-10 to 2020-04-29
 ### Added
 - added JSON input feature
 - added general rotating generator model

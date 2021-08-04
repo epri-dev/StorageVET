@@ -247,8 +247,6 @@ class Battery(EnergyStorage):
                     hp_proforma.loc[pd.Period(year=year, freq='y'), tech_id + 'Aux Load Cost'] = year_monthly.sum()
             # fill forward
             hp_proforma = fill_forward_func(hp_proforma, None)
-            # apply inflation rates
-            hp_proforma = apply_inflation_rate_func(hp_proforma, None, min(analysis_years))
             # append will super class's proforma
             pro_forma = pd.concat([pro_forma, hp_proforma], axis=1)
 

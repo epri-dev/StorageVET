@@ -100,8 +100,6 @@ class ICE(RotatingGenerator):
 
         # fill forward
         fuel_costs_df = fill_forward_func(fuel_costs_df, None)
-        # apply inflation rates
-        fuel_costs_df = apply_inflation_rate_func(fuel_costs_df, None, min(analysis_years))
         # append will super class's proforma
         pro_forma = pd.concat([pro_forma, fuel_costs_df], axis=1)
 
