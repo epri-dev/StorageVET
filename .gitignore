@@ -7,7 +7,6 @@
 # Data files: CSV, XML, Excel, etc.
 *.xml
 *.xls
-*.xlsx
 *.xlsm
 
 # IDE config files / folders
