@@ -14,7 +14,7 @@ multiprocess==0.70.10
 numpy==1.19.1
 osqp==0.6.1
 pandas==1.0.5
-Pillow==7.2.0
+Pillow==8.3.2
 prettytable==0.7.2
 pyparsing==2.4.7
 python-dateutil==2.8.1
