@@ -130,6 +130,7 @@ class SystemRequirement:
 
     def contributors(self, datetime_indx):
         """
+        Gets the Parents of the constraint during specified times
 
         Args:
             datetime_indx (pd.Index): data time index for the timesteps to be considered
@@ -137,7 +138,7 @@ class SystemRequirement:
         Returns: list of strings that represent the contributors of the constraint value(s) indicated by DATETIME_INDX
 
         """
-        contributors = self.parents[self.parents['DateTime'] == datetime_indx.values]
+        contributors = self.parents[self.parents['DateTime'].isin(datetime_indx.to_list())].Parent
         return contributors.unique()
 
     def get_subset(self, mask):

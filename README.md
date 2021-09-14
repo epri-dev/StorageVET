@@ -60,7 +60,7 @@ pip install -e ./storagevet
 ## Versioning
 
 We use [Gitlab](https://gitlab.epri.com/storagevet/storagevet) for versioning.
-This is version 1.1.2
+This is version 1.1.3
 
 ## Authors
 
@@ -74,6 +74,7 @@ This is version 1.1.2
 * **Yekta Yazar**
 * **Kunle Awojinrin**
 * **Giovanni Damato**
+* **Andrew Etringer**
 
 ## License
 

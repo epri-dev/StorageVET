@@ -145,9 +145,9 @@ class ServiceAggregator:
             self.system_requirements_conflict = True
             datetimes = conflict_mask.index[conflict_mask]
             if len(datetimes):
-                TellUser.error(f'System requirements are not possible at {datetimes}')
+                TellUser.error(f'System requirements are not possible at {datetimes.to_list()}')
                 for req in check_sys_req:
-                    TellUser.error(f"The following contribute to the error: {self.sys_requirements.get(req).contributor(datetimes)}")
+                    TellUser.error(f"The following contribute to the {req} error: {self.sys_requirements.get(req).contributors(datetimes)}")
 
     def optimization_problem(self, mask, load_sum, tot_variable_gen, generator_out_sum, net_ess_power, combined_rating, annuity_scalar=1):
         """ Generates the full objective function, including the optimization variables.

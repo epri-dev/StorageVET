@@ -5,6 +5,19 @@ Questions and feedback can be submitted to the Electric Power Research Institute
 
 The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.3] - 2021-08-04 to 2021-09-07
+### Changed
+- Changed the expected type to float for yearly_degrade battery input
+
+### Fixed
+- a bug that checks infeasibility in User Services timeseries inputs was fixed
+- Degradation Fixes
+  - State of Health calculation was corrected
+  - Application of calendar degradation was corrected
+- Simplifies system_requirements infeasibility checks
+  - removed place where this being checked redundantly
+  - fixed a bug that reports a contributor list to an error
+
 ## [1.1.2] - 2021-07-09 to 2021-08-03
 ### Changed
 - The O&M cost methodology in the proforma was improved

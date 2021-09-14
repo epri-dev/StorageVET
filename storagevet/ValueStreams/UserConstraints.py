@@ -99,7 +99,6 @@ class UserConstraints(ValueStream):
         if self.discharge_min_constraint is not None:
             self.discharge_min_constraint = self.return_positive_values(self.discharge_min_constraint)
             self.system_requirements.append(Requirement('discharge', 'min', self.name, self.discharge_min_constraint))
-        self.check_if_feasible(self.discharge_max_constraint, self.discharge_min_constraint)
         self.charge_max_constraint = self.user_power.get('POI: Max Import (kW)')
         if self.charge_max_constraint is not None:
             self.charge_max_constraint = self.return_positive_values(self.charge_max_constraint)
@@ -108,11 +107,6 @@ class UserConstraints(ValueStream):
         if self.charge_min_constraint is not None:
             self.charge_min_constraint = self.return_positive_values(self.charge_min_constraint)
             self.system_requirements.append(Requirement('charge', 'min', self.name, self.charge_min_constraint))
-        self.check_if_feasible(self.charge_max_constraint, self.charge_min_constraint)
-        if self.charge_min_constraint is not None and self.discharge_min_constraint is not None:
-            # both cannot be nonzero at the same time
-            if (self.charge_min_constraint > 0 and self.discharge_min_constraint > 0).any():
-                raise Exception('User given constraints are not feasible.')
 
         # set system requirements on Energy
         self.soe_max_constraint = self.user_energy.get('Aggregate Energy Max (kWh)')
@@ -121,7 +115,6 @@ class UserConstraints(ValueStream):
         self.soe_min_constraint = self.user_energy.get('Aggregate Energy Min (kWh)')
         if self.soe_min_constraint is not None:
             self.system_requirements.append(Requirement('energy', 'min', self.name, self.soe_min_constraint))
-        self.check_if_feasible(self.soe_max_constraint, self.soe_min_constraint)
 
     def timeseries_report(self):
         """ Summaries the optimization results for this Value Stream.
@@ -172,19 +165,6 @@ class UserConstraints(ValueStream):
 
         """
         self.price = new_value
-
-    @staticmethod
-    def check_if_feasible(max_array, min_array):
-        """Checks if the two arrays will create a feasible constraint. If they do not, then an Exception
-        is raised.
-
-        Args:
-            max_array (pd.Series): the array that will constrain a value to be smaller than
-            min_array (pd.Series): The array that will constrain a value to be bigger than
-        """
-        # if both a max and min are not empty, then preform this check to check for infeasibility
-        if (max_array is not None or min_array is not None) and (min_array > max_array).any():
-            raise Exception('User given constraints are not feasible.')
 
     @staticmethod
     def return_positive_values(array):

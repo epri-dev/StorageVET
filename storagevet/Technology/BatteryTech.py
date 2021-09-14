@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 import rainflow
 from storagevet.ErrorHandling import *
-from storagevet.Library import truncate_float
+from storagevet.Library import truncate_float, is_leap_yr
 import cvxpy as cvx
 
 
@@ -63,7 +63,8 @@ class Battery(EnergyStorage):
         # initialize degradation attributes
         self.cycle_life = params['cycle_life']
         self.degrade_perc = 0
-        self.soh = 1
+        self.soh_initial = 1 #Initial SOC at the start of the project
+        self.soh=1 #Initial SOC at the start of the project
         self.yearly_degrade = params['yearly_degrade'] / 100
         self.eol_condition = params['cycle_life_table_eol_condition'] / 100
         self.incl_cycle_degrade = bool(params['incl_cycle_degrade'])
@@ -83,11 +84,11 @@ class Battery(EnergyStorage):
 
         """
         if self.incl_cycle_degrade:
-            # initialize degredation dataframe
+            # initialize degradation dataframe
             self.degrade_data = pd.DataFrame(index=['Optimization Start']+list(opt_agg.control.unique()))
-            self.degrade_data['degradation'] = self.degrade_perc
-            self.degrade_data['soh'] = self.soh
-            self.degrade_data['effective energy capacity'] = self.degraded_energy_capacity()
+            self.degrade_data['degradation progress %'] = self.degrade_perc
+            self.degrade_data['state of health %'] = self.soh *100
+            self.degrade_data['effective energy capacity (kWh)'] = self.degraded_energy_capacity()
             self.calc_degradation('Optimization Start', None, None)
 
     def degraded_energy_capacity(self):
@@ -99,9 +100,8 @@ class Battery(EnergyStorage):
         Returns:
             Degraded energy capacity
         """
-        #new_ene_max = max(self.ene_max_rated*(1-self.degrade_perc), 0)
-        # useful_energy_fade_percent = self.degrade_perc, 0
-        soh_change = self.degrade_perc * (1 - self.eol_condition)
+
+        soh_change = self.degrade_perc
         new_ene_max = max(self.ene_max_rated * (1 - soh_change), 0)
         return new_ene_max
 
@@ -159,11 +159,11 @@ class Battery(EnergyStorage):
 
                 # sum across bins to get total degrade percent
                 # 1/cycle life value is degrade percent for each cycle
-                cycle_degrade = np.dot(1/cycle_sum['Cycle Life Value'], cycle_sum.cycles)
+                cycle_degrade = np.dot(1/cycle_sum['Cycle Life Value'], cycle_sum.cycles)* (1 - self.eol_condition)
 
             if start_dttm is not None and last_dttm is not None:
-                # add the yearly degredation linearly to the # of years from START_DTTM to (END_DTTM + dt)
-                days_in_year = 366 if start_dttm.year else 365
+                # add the yearly degradation linearly to the # of years from START_DTTM to (END_DTTM + dt)
+                days_in_year = 366 if is_leap_yr(start_dttm.year) else 365
                 portion_of_year = (last_dttm + pd.Timedelta(self.dt, unit='h') - start_dttm) / pd.Timedelta(days_in_year, unit='d')
                 yearly_degradation = self.yearly_degrade * portion_of_year
 
@@ -173,17 +173,17 @@ class Battery(EnergyStorage):
             # record the degradation
             # the total degradation after optimization OPT_PERIOD must also take into account the
             # degradation that occurred before the battery was in operation (which we saved as SELF.DEGRADE_PERC)
-            self.degrade_data.loc[opt_period, 'degradation'] = degrade_percent + self.degrade_perc
+            self.degrade_data.loc[opt_period, 'degradation progress %'] = degrade_percent + self.degrade_perc
             self.degrade_perc += degrade_percent
 
-            soh_change = self.degrade_perc * (1 - self.eol_condition)
-            self.soh = self.degrade_data.loc[opt_period, 'soh'] = self.soh  - soh_change
+            soh_new = self.soh_initial - self.degrade_perc
+            self.soh = self.degrade_data.loc[opt_period, 'state of health %'] = soh_new
 
             # apply degradation to technology (affects physical_constraints['ene_max_rated'] and control constraints)
             eff_e_cap = self.degraded_energy_capacity()
             TellUser.info(f"BATTERY - {self.name}: effective energy capacity is now {truncate_float(eff_e_cap)} kWh " +
                           f"({truncate_float(100*(1 - (self.ene_max_rated-eff_e_cap)/self.ene_max_rated), 7)}% of original)")
-            self.degrade_data.loc[opt_period, 'effective energy capacity'] = eff_e_cap
+            self.degrade_data.loc[opt_period, 'effective energy capacity (kWh)'] = eff_e_cap
             self.effective_soe_max = eff_e_cap * self.ulsoc
             self.effective_soe_min = eff_e_cap * self.llsoc
 

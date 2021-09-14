@@ -577,12 +577,12 @@ class Financial:
         """
         payback_period = self.payback_period(technologies, proforma, opt_years)  # This is simply (capex/yearlynetbenefit)
 
-        if self.npv_discount_rate:
-            dr = self.npv_discount_rate
+        dr = self.npv_discount_rate
+        if (dr * payback_period) < 1:
             discounted_pp = np.log(1/(1-(dr*payback_period)))/np.log(1+dr)
         else:
-            # if discount_rate = 0, then the equation simplifies to np.log(1)/np.log(1)-- which is undefined, so we return nan
-            discounted_pp = 'nan'
+            # with (dr * payback_period) >=. 1, the equation becomes undefined, so we return nan
+            discounted_pp = np.nan
 
         return discounted_pp
 

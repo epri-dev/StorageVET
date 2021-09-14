@@ -49,7 +49,7 @@ Battery,llsoc,5,%,float,"[0, 100] (must be less than ulsoc)",N/A,None,Energy Sto
 Battery,rte,85,%,float,"[0, 100] ",N/A,None,Energy Storage Round Trip Efficiency,.,no,
 Battery,sdr,0,%/hr,float,"[0, 99]",N/A,None,Energy Storage Self-Discharge Rate,.,no,
 Battery,soc_target,50,%,float,"[0, 100] ",N/A,None,The SOC the storage system will return to after every optimization window,.,no,
-Battery,yearly_degrade,0,%/yr,int,"[0, 100] ",N/A,None,% degradation per year. This calendar degradation combines with cycling degradation to get total degradation.,.,no,
+Battery,yearly_degrade,0,%/yr,float,"[0, 100] ",N/A,None,% degradation per year. This calendar degradation combines with cycling degradation to get total degradation.,.,no,
 Battery,cycle_life_table_eol_condition,80,%,int,"[0, 100] ",N/A,None,End of life condition used to make the cycle_life input table.,.,no,
 Battery,incl_cycle_degrade,0,N/A,bool,"{0,1}",N/A,None,T or F to include degradation per year,.,no,
 Battery,cycle_life_filename,.\Data\Battery_Cycle_Life.csv,N/A,string,valid file path to a degradation data file,N/A,None,"For our rainflow model, defines the buckets and the number of cycles per bucket the battery can with stand before requiring replacement",.,no,
