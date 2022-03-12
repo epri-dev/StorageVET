@@ -1,4 +1,4 @@
-cvxopt==1.2.5
+cvxopt==1.2.7
 cvxpy==1.0.31
 cycler==0.10.0
 dill==0.3.2
