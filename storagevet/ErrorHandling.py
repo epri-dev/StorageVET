@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -86,6 +86,14 @@ class TellUser:
             # add ch to logger
             cls.logger.addHandler(ch)
         cls.logger.info('Started logging...')
+
+    @classmethod
+    def close_log(cls):
+        for i in list(cls.logger.handlers):
+            print(i)
+            cls.logger.removeHandler(i)
+            i.flush()
+            i.close()
 
     @classmethod
     def debug(cls, msg):

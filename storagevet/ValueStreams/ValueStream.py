@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -305,3 +305,13 @@ class ValueStream:
 
     def max_participation_is_defined(self):
         return False
+
+    def rte_list(self, poi):
+        # value streams sometimes need rte in calculations
+        # get a list of rte values from all active ess
+        # default to [1], so that division by rte remains valid
+        rte_list = [der.rte for der in poi.der_list if der.technology_type == 'Energy Storage System']
+        if len(rte_list) == 0:
+            rte_list = [1]
+        # set an attribute to the value stream
+        self.rte_list = rte_list

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -31,13 +31,10 @@ Copyright (c) 2021, Electric Power Research Institute
 Rotating Generator Class
 
 CT: (Combustion Turbine) or gas turbine
-    - natural-gas fuel prices from monthly CSV
 ICE (Internal Combustion Engine)
-    - fuel_price fixed in Model Params CSV
 DieselGenset or diesel engine-generator that is a single unit
     - can independently supply electricity allowing them to serve backup power
 CHP (Combined Heat and Power)
-    - natural-gas fuel prices from monthly CSV
     - also includes heat recovery
 
 This Python class contains methods and attributes specific for technology analysis within StorageVet.
@@ -46,6 +43,7 @@ import cvxpy as cvx
 import numpy as np
 import pandas as pd
 from storagevet.Technology.DistributedEnergyResource import DER
+from storagevet.ErrorHandling import *
 
 
 class RotatingGenerator(DER):
@@ -60,19 +58,21 @@ class RotatingGenerator(DER):
             params (dict): Dict of parameters for initialization
         """
 
+        TellUser.debug(f"Initializing {__name__}")
         # create generic technology object
         super().__init__(params)
         # input params  UNITS ARE COMMENTED TO THE RIGHT
         self.technology_type = 'Generator'
         self.rated_power = params['rated_capacity']  # kW/generator
         self.p_min = params['min_power']  # kW/generator
-        self.variable_om = params['variable_om_cost']  # $/kwh
+        self.variable_om = params['variable_om_cost']  # $/kWh
         self.fixed_om = params['fixed_om_cost']  # $/yr
 
         self.capital_cost_function = [params['ccost'],  # $/generator
                                       params['ccost_kW']]
 
         self.n = params['n']  # generators
+        self.fuel_type = params['fuel_type']
 
         self.is_electric = True
         self.is_fuel = True
@@ -169,7 +169,7 @@ class RotatingGenerator(DER):
         """ Generates the objective function related to a technology. Default includes O&M which can be 0
 
         Args:
-            mask (Series): Series of booleans used, the same length as case.power_kw
+            mask (Series): Series of booleans used, the same length as case.power_kW
             annuity_scalar (float): a scalar value to be multiplied by any yearly cost or benefit that helps capture the cost/benefit over
                         the entire project lifetime (only to be set iff sizing)
 
@@ -180,6 +180,8 @@ class RotatingGenerator(DER):
         costs = {
             self.name + ' fixed': self.fixed_om * annuity_scalar,
             self.name + ' variable': cvx.sum(self.variable_om * self.dt * annuity_scalar * total_out),
+            # fuel cost in $/kW
+            self.name + ' fuel_cost': cvx.sum(total_out * self.heat_rate * self.fuel_cost * self.dt * annuity_scalar)
         }
         return costs
 
@@ -242,6 +244,7 @@ class RotatingGenerator(DER):
         om_costs = pd.DataFrame()
         cumulative_energy_dispatch_kw = pd.DataFrame()
         elec = self.variables_df['elec']
+        udis = self.variables_df['udis']
         dis_column_name = tech_id + ' Cumulative Energy Dispatch (kW)'
         variable_column_name = tech_id + ' Variable O&M Costs'
         for year in optimization_years:
@@ -250,8 +253,9 @@ class RotatingGenerator(DER):
             om_costs.loc[index_yr, self.fixed_column_name()] = -self.fixed_om
             # add variable costs
             elec_sub = elec.loc[elec.index.year == year]
+            udis_sub = udis.loc[udis.index.year == year]
             om_costs.loc[index_yr, variable_column_name] = -self.variable_om
-            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(elec_sub)
+            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(elec_sub) + np.sum(udis_sub)
 
         # fill forward (escalate rates)
         om_costs = fill_forward_func(om_costs, None, is_om_cost = True)
@@ -267,7 +271,20 @@ class RotatingGenerator(DER):
         # fixed om is already in $
         # variable om
         om_costs.loc[:, variable_column_name] = om_costs.loc[:, variable_column_name] * self.dt * cumulative_energy_dispatch_kw.loc[:, dis_column_name]
-
         # append with super class's proforma
         pro_forma = pd.concat([pro_forma, om_costs], axis=1)
+
+        # fuel costs in $/kW
+        fuel_costs = pd.DataFrame()
+        fuel_col_name = tech_id + ' Fuel Costs'
+        for year in optimization_years:
+            elec_sub = elec.loc[elec.index.year == year]
+            udis_sub = udis.loc[udis.index.year == year]
+            # add fuel costs in $/kW
+            fuel_costs.loc[pd.Period(year=year, freq='y'), fuel_col_name] = -np.sum(self.heat_rate * self.fuel_cost * self.dt * (elec_sub + udis_sub))
+        # fill forward
+        fuel_costs = fill_forward_func(fuel_costs, None)
+        # append with super class's proforma
+        pro_forma = pd.concat([pro_forma, fuel_costs], axis=1)
+
         return pro_forma

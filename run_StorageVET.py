@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -45,9 +45,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='StorageVET.py',
                                      description='The Electric Power Research Institute\'s energy storage system ' +
                                                  'analysis, dispatch, modelling, optimization, and valuation tool' +
-                                                 '. Should be used with Python 3.6.x, pandas 0.19+.x, and CVXPY' +
-                                                 ' 0.4.x or 1.0.x.',
-                                     epilog='Copyright 2018. Electric Power Research Institute (EPRI). ' +
+                                                 '. Should be used with Python 3.8',
+                                     epilog='Copyright 2022. Electric Power Research Institute (EPRI). ' +
                                             'All Rights Reserved.')
     parser.add_argument('parameters_filename', type=str,
                         help='specify the filename of the CSV file defining the PARAMETERS dataframe')

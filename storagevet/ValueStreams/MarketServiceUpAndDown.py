@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -173,6 +173,8 @@ class MarketServiceUpAndDown(ValueStream):
         reg_up_tot = regup_charge_payment + regup_disch_payment
 
         # REGULATION UP & DOWN: ENERGY SETTLEMENT
+        # NOTE: TODO: here we use rte_list[0] wqhich grabs the first available rte from an active ess
+        #   we will want to change this to actually use all available rte values from the list
         regdown_disch_settlement \
             = cvx.sum(cvx.multiply(cvx.multiply(self.variables['down_dis'],
                                                 p_ene),
@@ -180,7 +182,7 @@ class MarketServiceUpAndDown(ValueStream):
         regdown_charge_settlement \
             = cvx.sum(cvx.multiply(cvx.multiply(self.variables['down_ch'],
                                                 p_ene),
-                                   eod)) * self.dt * annuity_scalar
+                                   eod)) * self.dt * annuity_scalar / self.rte_list[0]
         e_settlement = regdown_disch_settlement + regdown_charge_settlement
 
         regup_disch_settlement \
@@ -190,7 +192,7 @@ class MarketServiceUpAndDown(ValueStream):
         regup_charge_settlement \
             = cvx.sum(cvx.multiply(cvx.multiply(self.variables['up_ch'],
                                                 -p_ene),
-                                   eou)) * self.dt * annuity_scalar
+                                   eou)) * self.dt * annuity_scalar / self.rte_list[0]
         e_settlement += regup_disch_settlement + regup_charge_settlement
 
         return {f'{self.name}_regup_prof': reg_up_tot,
@@ -448,7 +450,7 @@ class MarketServiceUpAndDown(ValueStream):
         proforma = super().proforma_report(opt_years, apply_inflation_rate_func,
                                            fill_forward_func, results)
         pref = self.full_name
-        reg_up =\
+        reg_up = \
             results.loc[:, f'{pref} Up (Charging) (kW)'] \
             + results.loc[:, f'{pref} Up (Discharging) (kW)']
         regulation_up_prof = np.multiply(reg_up, self.price_up)
@@ -458,8 +460,13 @@ class MarketServiceUpAndDown(ValueStream):
             + results.loc[:, f'{pref} Down (Discharging) (kW)']
         regulation_down_prof = np.multiply(reg_down, self.price_down)
 
-        energy_throughput \
-            = results.loc[:, f"{self.name} Energy Throughput (kWh)"]
+        # NOTE: TODO: here we use rte_list[0] wqhich grabs the first available rte from an active ess
+        #   we will want to change this to actually use all available rte values from the list
+        energy_throughput = \
+            results.loc[:, f"{self.name} Energy Throughput Down (Charging) (kWh)"] / self.rte_list[0] \
+            + results.loc[:, f"{self.name} Energy Throughput Down (Discharging) (kWh)"] \
+            + results.loc[:, f"{self.name} Energy Throughput Up (Charging) (kWh)"] / self.rte_list[0] \
+            + results.loc[:, f"{self.name} Energy Throughput Up (Discharging) (kWh)"]
         energy_through_prof = np.multiply(energy_throughput, self.price_energy)
 
         # combine all potential value streams into one df for faster

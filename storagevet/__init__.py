@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -30,7 +30,6 @@ Copyright (c) 2021, Electric Power Research Institute
 __all__ = ['SystemRequirement', 'Finances', 'params.py', 'Scenario', 'POI',
            'ServiceAggregator', 'Library',
            'Result', 'ErrorHandling.py']
-__copyright__ = 'Copyright 2018. Electric Power Research Institute (EPRI). All Rights Reserved.'
 __credits__ = ['Miles Evans', 'Andres Cortes', 'Evan Giarta', 'Halley Nathwani', 'Micah Botkin-Levy', 'Yekta Yazar']
 __license__ = 'EPRI'
 __maintainer__ = ['Halley Nathwani', 'Evan Giarta', 'Miles Evans']

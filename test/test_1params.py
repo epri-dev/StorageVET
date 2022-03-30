@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -196,6 +196,33 @@ def test_opt_years_not_in_monthly_data():
     """
     with pytest.raises(MonthlyDataError):
         check_initialization(DIR / "039-mutli_opt_years_not_in_monthly_data.csv")
+
+
+"""
+Test fuel cost with ICE
+"""
+
+def test_unallowed_fuel_type():
+    # following should fail
+    with pytest.raises(ModelParameterError):
+        check_initialization(DIR/'043-fuelcost-bad.csv')
+
+def test_fuel_cost_function():
+    """ Test that ICE fuel_cost equals fuel_price_liquid set in Finance.
+        (ICE fuel_type is liquid)
+    """
+    results = run_case(DIR/'044-fuelcost.csv')
+    # these 2 variables are set in the Model Params file
+    ice_name = 'ice gen'
+    finance_fuel_price_liquid = 25.0
+    actual_fuel_costs = {}
+    for der in results.instances[0].poi.der_list:
+        try:
+            actual_fuel_costs[der.name] = der.fuel_cost
+        except(AttributeError):
+            pass
+    expected_fuel_costs = { ice_name: finance_fuel_price_liquid }
+    assert expected_fuel_costs == actual_fuel_costs
 
 
 def test_no_label_results_key():

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -190,7 +190,7 @@ class MarketServiceUp(ValueStream):
             less energy than expected
 
         """
-        provided = self.variables['ch_less']*self.dt + self.variables['dis_more']*self.duration
+        provided = self.variables['ch_less']*self.duration + self.variables['dis_more']*self.duration
         return provided
 
     def timeseries_report(self):

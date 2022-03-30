@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -36,6 +36,7 @@ import itertools
 import json
 import xml.etree.ElementTree as eT
 from datetime import datetime
+from shutil import copy2
 
 import numpy as np
 import pandas as pd
@@ -121,8 +122,10 @@ class Params:
             raise Exception("Schema can not be imported.")
 
         # 2) CONVERT CSV INTO JSON
+        model_param_input_was_csv = False
         filename = Path(filename)
         if '.csv' == filename.suffix:
+            model_param_input_was_csv = True
             filename = cls.csv_to_json(filename)
 
         cls.filename = filename
@@ -145,11 +148,17 @@ class Params:
             cls.results_inputs['errors_log_path'] = Path(cls.results_inputs['errors_log_path'])
         TellUser.create_log(cls.results_inputs['errors_log_path'], verbose)
 
+        # copy the model parameters csv/json into the Results folder
+        # TODO: expand all paths to full in these objects before copying?
+        #        (so that they become usable regardless of where run_DERVET.py is called from)
+        cls.copy_model_params_to_results(model_param_input_was_csv)
+
         # _init_ the Params class
         cls.template = cls()
 
         # report back any warning
         if cls.input_error_raised or cls.bad_active_combo():
+            #TellUser.close_log()
             raise ModelParameterError(
                 "The model parameter has some errors associated to it. Please fix and rerun.")
 
@@ -165,6 +174,22 @@ class Params:
         cls.load_and_prepare()
 
         return cls.instances
+
+    @classmethod
+    def copy_model_params_to_results(cls, csv_was_used):
+        # copy the model parameters file that the code uses (.json or .xml)
+        src = cls.filename
+        if src.is_file():
+            dst = cls.results_inputs['errors_log_path'] / f'model_parameters{src.suffix}'
+            copy2(src, dst)
+            TellUser.info(f'JSON Model Parameter ({src}) was copied to Results ({dst})')
+        if csv_was_used:
+            # also copy the CSV model parameters file, if there is one in use
+            src = Path(str(src.parent / src.stem) + '.csv')
+            if src.is_file():
+                dst = cls.results_inputs['errors_log_path'] / f'model_parameters{src.suffix}'
+                copy2(src, dst)
+                TellUser.info(f'CSV Model Parameter ({src}) was copied to Results ({dst})')
 
     @classmethod
     def csv_to_json(cls, csv_filepath):
@@ -1075,6 +1100,7 @@ class Params:
             slf.load_services()
         # report back any warning
         if cls.input_error_raised:
+            #TellUser.close_log()
             raise ModelParameterError(
                 "The model parameter has some errors associated to it. Please fix and rerun.")
         if cls.timeseries_error:
@@ -1170,7 +1196,7 @@ class Params:
             'max_export': scenario['max_export'],
             'max_import': scenario['max_import'],
             'load_growth': scenario['def_growth'],
-            'apply_poi_constraints': scenario['apply_interconnection_constraints']
+            'apply_poi_constraints': scenario['apply_interconnection_constraints'],
         }
         TellUser.info("Successfully prepared the Scenario")
 
@@ -1364,23 +1390,8 @@ class Params:
                                         f"dis_min_rated. dis_max_rated " +
                                         f"should be greater than " +
                                         f"dis_min_rated")
-            # add monthly data and scenario case parameters to CAES dictionary
+            # add scenario case parameters to CAES dictionary
             caes_inputs.update({'binary': binary, 'dt': dt})
-            natural_gas_price_name = "Natural Gas Price ($/MillionBTU)"
-            if id_str == "":
-                error_msg = f"CAES #{id_str} missing '" \
-                            f"{natural_gas_price_name}" \
-                            f"' from monthly input. " +\
-                            "Please include a monthly fuel price."
-            else:
-                error_msg = f"CAES #{id_str} missing '" \
-                            f"{natural_gas_price_name}/{id_str}" \
-                            f"' from monthly input. " + \
-                            "Please include a monthly fuel price."
-            fuel_cost = self.grab_column(monthly_data, natural_gas_price_name,
-                                         error_msg, id_str)
-            caes_inputs['fuel_cost'] = self.monthly_to_timeseries(freq,
-                                                                  fuel_cost)
 
         # validation checks for a Battery's parameters
         for id_str, bat_input in self.Battery.items():
@@ -1529,7 +1540,7 @@ class Params:
                 })
             except KeyError:
                 self.record_input_error(
-                    "Missing 'Deferral Load (kW)' from timeseries input. Please include a monthly fuel price.")
+                    "Missing 'Deferral Load (kW)' from timeseries input. Please include a deferral load.")
 
         if self.Volt is not None:
             try:

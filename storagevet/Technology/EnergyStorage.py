@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -80,7 +80,7 @@ class EnergyStorage(DER):
         self.incl_binary = params['binary']
         self.daily_cycle_limit = params['daily_cycle_limit']
 
-        self.capital_cost_function = [params['ccost'], params['ccost_kw'], params['ccost_kwh']]
+        self.capital_cost_function = [params['ccost'], params['ccost_kW'], params['ccost_kWh']]
 
         if self.incl_startup:
             self.p_start_ch = params['p_start_ch']
@@ -311,7 +311,7 @@ class EnergyStorage(DER):
         """ Generates the objective function related to a technology. Default includes O&M which can be 0
 
         Args:
-            mask (Series): Series of booleans used, the same length as case.power_kw
+            mask (Series): Series of booleans used, the same length as case.power_kW
             annuity_scalar (float): a scalar value to be multiplied by any yearly cost or benefit that helps capture the cost/benefit over
                     the entire project lifetime (only to be set iff sizing, else annuity_scalar should not affect the aobject function)
 
@@ -500,6 +500,7 @@ class EnergyStorage(DER):
         om_costs = pd.DataFrame()
         cumulative_energy_dispatch_kw = pd.DataFrame()
         dis = self.variables_df['dis']
+        udis = self.variables_df['udis']
         dis_column_name = tech_id + ' Cumulative Energy Dispatch (kW)'
         variable_column_name = tech_id + ' Variable O&M Cost'
         for year in optimization_years:
@@ -508,8 +509,9 @@ class EnergyStorage(DER):
             om_costs.loc[index_yr, self.fixed_column_name()] = -self.fixedOM_perKW
             # add variable o&m costs
             dis_sub = dis.loc[dis.index.year == year]
+            udis_sub = udis.loc[udis.index.year == year]
             om_costs.loc[index_yr, variable_column_name] = -self.variable_om
-            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(dis_sub)
+            cumulative_energy_dispatch_kw.loc[index_yr, dis_column_name] = np.sum(dis_sub) + np.sum(udis_sub)
 
             # add startup costs
             if self.incl_startup:
@@ -540,6 +542,7 @@ class EnergyStorage(DER):
         pro_forma = pd.concat([pro_forma, om_costs], axis=1)
         if self.incl_startup:
             pro_forma = pd.concat([pro_forma, startup_costs], axis=1)
+
         return pro_forma
 
     def verbose_results(self):

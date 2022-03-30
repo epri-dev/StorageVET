@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -53,6 +53,7 @@ class PV(DER):
             params (dict): Dict of parameters
         """
         TellUser.debug(f"Initializing {__name__}")
+        self.tag = 'PV'
         # create generic technology object
         super().__init__(params)
         self.technology_type = "Intermittent Resource"
@@ -186,11 +187,11 @@ class PV(DER):
 
         """
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
-        analysis_years = self.variables_df.index.year.unique()
+        optimization_years = self.variables_df.index.year.unique()
 
         # OM COSTS
         om_costs = pd.DataFrame()
-        for year in analysis_years:
+        for year in optimization_years:
             # add fixed o&m costs
             om_costs.loc[pd.Period(year=year, freq='y'), self.fixed_column_name()] = -self.fixed_om
         # fill forward

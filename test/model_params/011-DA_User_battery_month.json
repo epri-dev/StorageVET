@@ -32,7 +32,7 @@
                         },
                         "type": "float"
                     },
-                    "ccost_kw": {
+                    "ccost_kW": {
                         "opt_value": "100",
                         "sensitivity": {
                             "active": "no",
@@ -41,7 +41,7 @@
                         },
                         "type": "float"
                     },
-                    "ccost_kwh": {
+                    "ccost_kWh": {
                         "opt_value": "800",
                         "sensitivity": {
                             "active": "no",
@@ -543,6 +543,33 @@
                     },
                     "federal_tax_rate": {
                         "opt_value": "3",
+                        "sensitivity": {
+                            "active": "no",
+                            "coupled": "None",
+                            "value": "nan"
+                        },
+                        "type": "float"
+                    },
+                    "fuel_price_gas": {
+                        "opt_value": "3",
+                        "sensitivity": {
+                            "active": "no",
+                            "coupled": "None",
+                            "value": "nan"
+                        },
+                        "type": "float"
+                    },
+                    "fuel_price_liquid": {
+                        "opt_value": "25",
+                        "sensitivity": {
+                            "active": "no",
+                            "coupled": "None",
+                            "value": "nan"
+                        },
+                        "type": "float"
+                    },
+                    "fuel_price_other": {
+                        "opt_value": "15",
                         "sensitivity": {
                             "active": "no",
                             "coupled": "None",

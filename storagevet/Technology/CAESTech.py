@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -37,6 +37,7 @@ import cvxpy as cvx
 import pandas as pd
 import numpy as np
 import storagevet.Library as Lib
+from storagevet.ErrorHandling import *
 
 
 class CAES(EnergyStorage):
@@ -52,26 +53,21 @@ class CAES(EnergyStorage):
             params (dict): params dictionary from dataframe for one case
         """
 
+        TellUser.debug(f"Initializing {__name__}")
+        self.tag = 'CAES'
         # create generic technology object
         super().__init__(params)
         # add CAES specific attributes
         self.tag = 'CAES'
-        self.heat_rate_high = params['heat_rate_high']
-        self.fuel_price = params['fuel_price']  # $/MillionBTU per month
+        self.fuel_type = params['fuel_type']
+        self.heat_rate = 1e-3 * params['heat_rate_high']   # MMBtu/MWh ---> MMBtu/kWh
+        self.is_fuel = True
 
-    def grow_drop_data(self, years, frequency, load_growth):
-        """ Adds data by growing the given data OR drops any extra data that might have slipped in.
-        Update variable that hold timeseries data after adding growth data. These method should be called after
-        add_growth_data and before the optimization is run.
-
-        Args:
-            years (List): list of years for which analysis will occur on
-            frequency (str): period frequency of the timeseries data
-            load_growth (float): percent/ decimal value of the growth rate of loads in this simulation
-
+    def initialize_degradation_module(self, opt_agg):
         """
-        self.fuel_price = Lib.fill_extra_data(self.fuel_price, years, 0, frequency)
-        self.fuel_price = Lib.drop_extra_data(self.fuel_price, years)
+        bypass degradation by doing nothing here
+        """
+        pass
 
     def objective_function(self, mask, annuity_scalar=1):
         """ Generates the objective costs for fuel cost and O&M cost
@@ -87,67 +83,33 @@ class CAES(EnergyStorage):
         """
         # get generic Tech objective costs
         costs = super().objective_function(mask, annuity_scalar)
-
-        # add fuel cost expression
-        fuel_exp = cvx.sum(cvx.multiply(self.fuel_price[mask].values, self.variables_dict['dis'] + self.variables_dict['udis'])
-                           * self.heat_rate_high * self.dt * 1e-6 * annuity_scalar)
-        costs.update({self.name + 'CAES_fuel_cost': fuel_exp})
+        total_out = self.variables_dict['dis'] + self.variables_dict['udis']
+        # add fuel cost expression in $/kWh
+        fuel_exp = cvx.sum(total_out * self.heat_rate * self.fuel_cost * self.dt * annuity_scalar)
+        costs.update({self.name + ' fuel_cost': fuel_exp})
 
         return costs
 
-    def calc_operating_cost(self, energy_rate, fuel_rate):
-        """ Calculates operating cost in dollars per MWh_out
-
-         Args:
-            energy_rate (float): energy rate [=] $/kWh
-            fuel_rate (float): natural gas price rate [=] $/MillionBTU
-
-        Returns:
-            Value of Operating Cost [=] $/MWh_out
-
-        Note: not used
-
-        """
-        fuel_cost = fuel_rate*self.heat_rate_high*1e3/1e6
-        om = self.get_fixed_om()
-        energy = energy_rate*1e3/self.rte
-
-        return fuel_cost + om + energy
-
-    def timeseries_report(self):
-        """ Summaries the optimization results for this DER.
-
-        Returns: A timeseries dataframe with user-friendly column headers that summarize the results
-            pertaining to this instance
-
-        """
-        tech_id = self.unique_tech_id()
-        results = super().timeseries_report()
-        results[tech_id + ' Natural Gas Price ($/MillionBTU)'] = self.fuel_price
-        return results
-
     def proforma_report(self, apply_inflation_rate_func, fill_forward_func, results):
-        """ Calculates the proforma that corresponds to participation in this value stream
-
-        Args:
-            apply_inflation_rate_func:
-            fill_forward_func:
-            results (pd.DataFrame):
-
-        Returns: A DateFrame of with each year in opt_year as the index and
-            the corresponding value this stream provided.
-
-
-        """
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
-        fuel_col_name = self.unique_tech_id() + ' Natural Gas Costs'
-        analysis_years = self.variables_df.index.year.unique()
-        fuel_costs_df = pd.DataFrame()
-        for year in analysis_years:
-            fuel_price_sub = self.fuel_price.loc[self.fuel_price.index.year == year]
-            fuel_costs_df.loc[pd.Period(year=year, freq='y'), fuel_col_name] = -np.sum(fuel_price_sub*self.heat_rate_high*1e3/1e6)
+        if self.variables_df.empty:
+            return pro_forma
+        tech_id = self.unique_tech_id()
+        optimization_years = self.variables_df.index.year.unique()
+        dis = self.variables_df['dis']
+        udis = self.variables_df['udis']
+
+        # add CAES fuel costs in $/kW
+        fuel_costs = pd.DataFrame()
+        fuel_col_name = tech_id + ' Fuel Costs'
+        for year in optimization_years:
+            dis_sub = dis.loc[dis.index.year == year]
+            udis_sub = udis.loc[udis.index.year == year]
+            # add fuel costs in $/kW
+            fuel_costs.loc[pd.Period(year=year, freq='y'), fuel_col_name] = -np.sum(self.heat_rate * self.fuel_cost * self.dt * (dis_sub + udis_sub))
         # fill forward
-        fuel_costs_df = fill_forward_func(fuel_costs_df, None)
-        # append will super class's proforma
-        pro_forma = pd.concat([pro_forma, fuel_costs_df], axis=1)
+        fuel_costs = fill_forward_func(fuel_costs, None)
+        # append with super class's proforma
+        pro_forma = pd.concat([pro_forma, fuel_costs], axis=1)
+
         return pro_forma

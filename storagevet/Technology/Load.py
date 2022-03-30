@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -34,7 +34,6 @@ This Python class contains methods and attributes specific for technology analys
 """
 
 __author__ = 'Halley Nathwani'
-__copyright__ = 'Copyright 2018. Electric Power Research Institute (EPRI). All Rights Reserved.'
 __credits__ = ['Miles Evans', 'Andres Cortes', 'Evan Giarta', 'Halley Nathwani', 'Micah Botkin-Levy', 'Yekta Yazar']
 __license__ = 'EPRI'
 __maintainer__ = ['Halley Nathwani', 'Evan Giarta', 'Miles Evans']
@@ -61,6 +60,7 @@ class Load(DER):
             params (dict): Dict of parameters for initialization
         """
         TellUser.debug(f"Initializing {__name__}")
+        self.tag = 'Load'
         # create generic technology object
         super().__init__(params)
         self.technology_type = 'Load'

@@ -12,34 +12,38 @@ These instructions will get you a copy of the project up and running on your loc
 
 #### 2. Open Anaconda Prompt
 
-#### 3. Activate Python 3.6 environment
+#### 3. Activate Python 3.8 environment
 
 On Linux/Mac
-Note that pip should be associated to a python 3.6 installation
+
+Note that pip should be associated to a python 3.8 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
 source storagevet-venv/bin/activate
 ```
 On Windows
-Note that pip should be associated to a python 3.6 installation
+
+Note that pip should be associated to a python 3.8 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
 "./storagevet-venv/Scripts/activate"
 ```
 With Conda
-Note that the python version is specified, meaning conda does not have to be associated with a python 3.6
+
+Note that the python version is specified, meaning conda does not have to be associated with a python 3.8
 ```
-conda create -n storagevet-venv python=3.6
+conda create -n storagevet-venv python=3.8.13
 conda activate storagevet-venv
 ```
 
 #### 3. Install project dependencies
 
 ```
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install setuptools==52.0.0
+pip install -r requirements.txt -r requirements-dev.txt
+pip install numpy_financial==1.0.0
 ```
 
 ## Running the tests
@@ -60,7 +64,7 @@ pip install -e ./storagevet
 ## Versioning
 
 We use [Gitlab](https://gitlab.epri.com/storagevet/storagevet) for versioning.
-This is version 1.1.3
+This is version 1.2.0
 
 ## Authors
 

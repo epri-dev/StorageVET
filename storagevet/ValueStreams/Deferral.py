@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -226,8 +226,8 @@ class Deferral(ValueStream):
             else:
                 sto_dispatch[step] = 0
                 e_walk[step] = e_walk[step - 1]
-        kwh_min = max(e_walk) - min(e_walk)
-        self.e_min = float(kwh_min)
+        kWh_min = max(e_walk) - min(e_walk)
+        self.e_min = float(kWh_min)
         return e_walk, sto_dispatch
 
     def grow_drop_data(self, years, frequency, load_growth):

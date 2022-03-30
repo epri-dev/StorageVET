@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -55,8 +55,8 @@ class DER:
         # initialize internal attributes
         self.name = params['name']  # specific tech model name
         self.dt = params['dt']
-        self.technology_type = None  # "Energy Storage System", "Rotating Generator", "Intermittent Resource", "Load"
-        self.tag = None
+        #self.technology_type = None  # "Energy Storage System", "Rotating Generator", "Intermittent Resource", "Load"
+        #self.tag = None
         self.variable_om = 0  # $/kWh
         self.id = params.get('ID')
 
@@ -71,6 +71,17 @@ class DER:
         self.is_fuel = False        # can this DER consume fuel?
 
         self.can_participate_in_market_services = True
+
+    def set_fuel_cost(self, function_pointer):
+        """
+        Sets a fuel_cost attribute if the DER can consume fuel
+
+        Args:
+            function_pointer (function): likely to be Financial.get_fuel_costs()
+        """
+        if self.is_fuel:
+            self.fuel_cost = function_pointer(self.fuel_type)
+            TellUser.debug(f'Setting a fuel_cost attribute: {self.fuel_cost} $/MMBtu (fuel_type: {self.fuel_type}) for this DER: {self.tag}: {self.name}')
 
     def zero_column_name(self):
         return self.unique_tech_id() + ' Capital Cost'  # used for proforma creation

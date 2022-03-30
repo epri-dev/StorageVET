@@ -68,3 +68,6 @@ PV,1,PPA_cost,0.0275,$/kWh,float,"[0,inf)",,None,Power Purchasing Agreement's co
 PV,1,replacement_construction_time,1,years,int,"[1, inf)",,None,"The time, in years, it takes finish DER equipement replacement construction",.,no,.,.,
 PV,1,PPA_inflation_rate,2,%,float,"(-100,100)",,,An escalation rate exclusively for the Solar PPA Cost (For operation year 2 onwards),.,no,,,
 Finance,.,ecc_mode,0,y/n,bool,"{0,1}",,None,Setting to TRUE will tell the cost benefit analysis to do the Economic Carrying Cost of your DERs,.,no,.,.,
+Finance,.,fuel_price_liquid,25,$/MMBtu,float,>0,N/A,None,Price of liquid fuel to be used for any DERs that have fuel_type set to liquid,.,no,.,.,
+Finance,.,fuel_price_gas,3,$/MMBtu,float,>0,N/A,None,Price of gaseous fuel to be used for any DERs that have fuel_type set to gas,.,no,.,.,
+Finance,.,fuel_price_other,15,$/MMBtu,float,>0,N/A,None,Price of other fuel to be used for any DERs that have fuel_type set to other,.,no,.,.,

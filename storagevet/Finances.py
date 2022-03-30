@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -35,6 +35,7 @@ This Python class contains methods and attributes vital for completing financial
 
 import pandas as pd
 import numpy as np
+import numpy_financial as npf
 import storagevet.Library as Lib
 from storagevet.ErrorHandling import *
 
@@ -65,6 +66,11 @@ class Financial:
         self.verbose = params['verbose']
         self.external_incentives = params['external_incentives']
         self.yearly_data = params['yearly_data']
+
+        # fuel cost attributes
+        self.fuel_price_liquid = params['fuel_price_liquid']  # $/MMBtu
+        self.fuel_price_gas = params['fuel_price_gas']  # $/MMBtu
+        self.fuel_price_other = params['fuel_price_other']  # $/MMBtu
 
         # attributes shared with scenario and results
         self.start_year = start_year
@@ -300,6 +306,23 @@ class Financial:
             raise TariffError('Please check the retail tariff')
         return temp
 
+    def get_fuel_cost(self, fuel_type):
+        """ This function looks up and returns the fuel_price from
+                Financial attributes, based on a fuel_type
+        Args:
+            fuel_type (String): it must also have an associated price attribute
+                     valid types: liquid, gas, other
+        Returns:
+            a fuel_cost (Float)
+                units are $/MMBtu
+        """
+        fuel_cost = {
+            'liquid': self.fuel_price_liquid,
+            'gas': self.fuel_price_gas,
+            'other': self.fuel_price_other
+        }
+        return fuel_cost[fuel_type]
+
     def proforma_report(self, technologies, valuestreams, results, opt_years):
         """ Calculates and returns the proforma
 
@@ -483,8 +506,8 @@ class Financial:
         benefit_pv = 0  # benefit present value (discounted benefit)
         self.cost_benefit = pd.DataFrame({'Lifetime Present Value': [0, 0]}, index=pd.Index(['Cost ($)', 'Benefit ($)']))
         for col in cost_df.columns:
-            present_cost = np.npv(self.npv_discount_rate, cost_df[col].values)
-            present_benefit = np.npv(self.npv_discount_rate, benefit_df[col].values)
+            present_cost = npf.npv(self.npv_discount_rate, cost_df[col].values)
+            present_benefit = npf.npv(self.npv_discount_rate, benefit_df[col].values)
 
             self.cost_benefit[col] = [np.abs(present_cost), present_benefit]
 
@@ -507,9 +530,9 @@ class Financial:
         # NPV for growth_cols
         for col in pro_forma.columns:
             if col == 'Yearly Net Value':
-                npv_dict.update({'Lifetime Present Value': [np.npv(self.npv_discount_rate, pro_forma[col].values)]})
+                npv_dict.update({'Lifetime Present Value': [npf.npv(self.npv_discount_rate, pro_forma[col].values)]})
             else:
-                npv_dict.update({col: [np.npv(self.npv_discount_rate, pro_forma[col].values)]})
+                npv_dict.update({col: [npf.npv(self.npv_discount_rate, pro_forma[col].values)]})
         self.npv = pd.DataFrame(npv_dict, index=pd.Index(['NPV']))
 
     def payback_report(self, technologies, proforma, opt_years):
@@ -552,6 +575,10 @@ class Financial:
         first_opt_year = min(opt_years)
         yearlynetbenefit = proforma.iloc[:, :-1].loc[pd.Period(year=first_opt_year, freq='y'), :].sum()
 
+        if yearlynetbenefit == 0:
+            # with yearlynetbenefit = 0, the equation becomes undefined, so we return nan
+            return np.nan
+
         return capex/yearlynetbenefit
 
     def discounted_payback_period(self, technologies, proforma, opt_years):
@@ -576,13 +603,11 @@ class Financial:
 
         """
         payback_period = self.payback_period(technologies, proforma, opt_years)  # This is simply (capex/yearlynetbenefit)
-
         dr = self.npv_discount_rate
-        if (dr * payback_period) < 1:
-            discounted_pp = np.log(1/(1-(dr*payback_period)))/np.log(1+dr)
-        else:
-            # with (dr * payback_period) >=. 1, the equation becomes undefined, so we return nan
-            discounted_pp = np.nan
+        if ((dr * payback_period) >= 1) or (dr == 0):
+            # with (dr * payback_period) >= 1, or dr=0, the equation becomes undefined, so we return nan
+            return np.nan
+        discounted_pp = np.log(1/(1-(dr*payback_period)))/np.log(1+dr)
 
         return discounted_pp
 

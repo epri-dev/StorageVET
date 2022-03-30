@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -44,12 +44,12 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='storagevet',
-      version='1.1.3',
+      version='1.2.0',
       description='Storage value estimation tool',
       url='#',
       long_description=README,
-      author='Halley Nathwani',
-      author_email='hnathwani@epri.com',
+      author='Andrew Etringer',
+      author_email='aetringer@epri.com',
       license='EPRI',
       classifiers=[
               "License :: EPRI License",

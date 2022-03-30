@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -137,8 +137,8 @@ class POI:
 
         for der_instance in self.active_ders:
             # add the state of the der's power over time & stored energy over time to system's
-            agg_power_flows_in += der_instance.get_charge(mask)
-            agg_power_flows_out += der_instance.get_discharge(mask)
+            agg_power_flows_in += (der_instance.get_charge(mask) - der_instance.get_discharge(mask))
+            agg_power_flows_out += (der_instance.get_discharge(mask) - der_instance.get_charge(mask))
 
             if der_instance.technology_type == 'Load':
                 load_sum += der_instance.get_charge(mask)
@@ -149,6 +149,10 @@ class POI:
                 gen_sum += der_instance.get_discharge(mask)
             if der_instance.technology_type == 'Intermittent Resource':
                 var_gen_sum += der_instance.get_discharge(mask)
+
+        ##NOTE: these print statements disclose info for get_state_of_system Results
+        #print(f'agg_power_flows_in ({agg_power_flows_in.size}): {agg_power_flows_in.value}')
+        #print(f'agg_power_flows_out ({agg_power_flows_out.size}): {agg_power_flows_out.value}')
 
         return load_sum, var_gen_sum, gen_sum, tot_net_ess, total_soe, agg_power_flows_in, agg_power_flows_out, agg_steam_heating_power, agg_hotwater_heating_power, agg_thermal_cooling_power
 
@@ -244,9 +248,23 @@ class POI:
             constraint_list += [cvx.NonPos(self.max_import + power_in + (-1)*power_out)]
 
             # max_export >= power_out
-            constraint_list += [cvx.NonPos(power_out + (-1)*power_in - self.max_export)]
+            # NOTE: with active_load_dump True, we do not include this constraint
+            #   active_load_dump only occurs in DER-VET
+            if not self.disable_max_export_poi_constraint():
+                constraint_list += [cvx.NonPos(power_out + (-1)*power_in - self.max_export)]
 
         return obj_expression, constraint_list
+
+    def disable_max_export_poi_constraint(self):
+        # NOTE: active_load_dump only occurs in DER-VET
+        #   when active_load_dump is True, we return True to disable the max_export poi constraint
+        try:
+            disable_max_export = self.active_load_dump
+            if disable_max_export:
+                TellUser.warning(f'You have activated a load dump in DER-VET, therefore we disable the max_export POI constraint in the optimization. The load dump will be determined as a post-optimization calculation.')
+            return disable_max_export
+        except AttributeError:
+            return False
 
     def aggregate_p_schedules(self, mask):
         """ POI method to add up the discharge power schedules from DERs. The 'power schedule'

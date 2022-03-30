@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -30,10 +30,25 @@ Copyright (c) 2021, Electric Power Research Institute
 from storagevet.StorageVET import StorageVET
 import os
 import pandas as pd
+from pathlib import Path
 
+def _checkThatFileExists(f, name='Unlabeled', raise_exception_on_fail=True, write_msg_to_terminal=True):
+    path_file = Path(f)
+    if write_msg_to_terminal:
+        msg = f'\n{name} file:\n  {path_file.resolve()}'
+        print(msg)
+    if not path_file.is_file():
+        if raise_exception_on_fail:
+            raise FileNotFoundError(f'\n\nFAIL: Your specified {name} file does not exist:\n{path_file.resolve()}\n')
+        else:
+            print(f'\n\nFAIL: Your specified {name} file does not exist:\n{path_file.resolve()}\n')
+            return None
+    return path_file
 
 def run_case(model_param_location: str):
     print(f"Testing {model_param_location}...")
+    # first make sure the model_param file exists
+    model_param_file = _checkThatFileExists(Path(model_param_location), 'Model Parameter Input File')
     case = StorageVET(model_param_location, True)
     results = case.solve()
     print(results.dir_abs_path)
@@ -42,6 +57,8 @@ def run_case(model_param_location: str):
 
 def check_initialization(model_param_location: str):
     print(f"Testing {model_param_location}...")
+    # first make sure the model_param file exists
+    model_param_file = _checkThatFileExists(Path(model_param_location), 'Model Parameter Input File')
     case = StorageVET(model_param_location, True)
     return case
 

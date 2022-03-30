@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -211,6 +211,9 @@ class Scenario(object):
         """ Initialize StorageVET's limited cost benefit analysis module with user given inputs
         """
         self.cost_benefit_analysis = Fin.Financial(self.finance_inputs, self.start_year, self.end_year)
+        # add fuel_cost to active DERs that can consume fuel
+        for der in self.poi.der_list:
+            der.set_fuel_cost(self.cost_benefit_analysis.get_fuel_cost)
 
     def fill_and_drop_extra_data(self):
         """ Go through value streams and technologies and keep data for analysis years, and add more
@@ -220,6 +223,10 @@ class Scenario(object):
 
         """
         self.opt_years = self.service_agg.update_analysis_years(self.end_year, self.poi, self.frequency, self.opt_years, self.def_growth)
+
+        # add rte_list from all active ess to each value stream
+        for service in self.service_agg.value_streams.values():
+            service.rte_list(self.poi)
 
         # add missing years of data to each value stream
         for service in self.service_agg.value_streams.values():
@@ -333,6 +340,24 @@ class Scenario(object):
         for opt_period in self.optimization_levels.predictive.unique():
             # setup + run optimization then return optimal objective costs
             functions, constraints, sub_index = self.set_up_optimization(opt_period)
+
+#            #NOTE: these print statements reveal the final constraints and costs for debugging
+#            print(f'\nFinal constraints ({len(constraints)}):')
+#
+#            #NOTE: more detail on constraints
+#            for i, c in enumerate(constraints):
+#                print(f'constraint {i}: {c.name()}')
+#                print(f"  variables: {', '.join([j.name() for j in c.variables()])}")
+#                print('  parameters:')
+#                for p in c.parameters():
+#                    print(f'    {p.name()} = {p.value}')
+#                print()
+#
+#            print('\n'.join([k.name() for k in constraints]))
+#            print(f'\ncosts ({len(functions)}):')
+#            print('\n'.join([f'{k}: {v}' for k, v in functions.items()]))
+#            print()
+
             cvx_problem, obj_expressions, cvx_error_msg = self.solve_optimization(functions, constraints)
             self.save_optimization_results(opt_period, sub_index, cvx_problem, obj_expressions, cvx_error_msg)
 
@@ -380,23 +405,23 @@ class Scenario(object):
         discharge_min = self.system_requirements.get('discharge min')
         if discharge_min is not None:
             discharge_min_value = discharge_min.get_subset(mask)
-            sub_discharge_min_req = cvx.Parameter(shape=opt_var_size, value=discharge_min_value, name='SysDisMinReq')
-            consts += [cvx.NonPos(sub_discharge_min_req - agg_p_out)]
+            sub_discharge_min_req = cvx.Parameter(shape=opt_var_size, value=discharge_min_value, name='SysDisMinReq') * -1
+            consts += [cvx.NonPos(sub_discharge_min_req - (tot_net_ess + gen_sum))]
         discharge_max = self.system_requirements.get('discharge max')
         if discharge_max is not None:
             discharge_max_value = discharge_max.get_subset(mask)
             sub_discharge_max_req = cvx.Parameter(shape=opt_var_size, value=discharge_max_value, name='SysDisMaxReq')
-            consts += [cvx.NonPos(agg_p_out - sub_discharge_max_req)]
+            consts += [cvx.NonPos((tot_net_ess + gen_sum) - sub_discharge_max_req)]
         charge_max = self.system_requirements.get('charge max')
         if charge_max is not None:
             charge_max_value = charge_max.get_subset(mask)
             sub_charge_max_req = cvx.Parameter(shape=opt_var_size, value=charge_max_value, name='SysChMaxReq')
-            consts += [cvx.NonPos(agg_p_in - sub_charge_max_req)]
+            consts += [cvx.NonPos((tot_net_ess + gen_sum)*-1 - sub_charge_max_req)]
         charge_min = self.system_requirements.get('charge min')
         if charge_min is not None:
             charge_min_value = charge_min.get_subset(mask)
             sub_charge_min_req = cvx.Parameter(shape=opt_var_size, value=charge_min_value, name='SysChMinReq')
-            consts += [cvx.NonPos(sub_charge_min_req - agg_p_in)]
+            consts += [cvx.NonPos(sub_charge_min_req + (tot_net_ess + gen_sum)*-1)]
         energy_min = self.system_requirements.get('energy min')
         if energy_min is not None:
             energy_min_value = energy_min.get_subset(mask)
@@ -430,7 +455,7 @@ class Scenario(object):
 
         return funcs, consts, sub_index
 
-    def solve_optimization(self, obj_expression, obj_const):
+    def solve_optimization(self, obj_expression, obj_const, force_glpk_mi=False):
         """ Sets up and runs optimization on a subset of time in a year. Called within a loop.
 
         Args:
@@ -454,18 +479,26 @@ class Scenario(object):
 
                 # prob.solve(verbose=self.verbose_opt, solver=cvx.ECOS_BB, mi_abs_eps=1, mi_rel_eps=1e-2, mi_max_iters=1000)
                 start = time.time()
+                TellUser.debug("glpk_mi solver")
                 prob.solve(verbose=self.verbose_opt, solver=cvx.GLPK_MI)
                 end = time.time()
                 TellUser.info("Time it takes for solver to finish: " + str(end - start))
             else:
                 start = time.time()
-                # ECOS is default sovler and seems to work fine here
-                prob.solve(verbose=self.verbose_opt, solver=cvx.ECOS_BB)
+                # ECOS is default solver and seems to work fine here, however...
+                # a problem with ECOS was found when running projects with thermal loads,
+                # so we force use of glpk_mi for these cases
+                if force_glpk_mi:
+                    TellUser.debug("glpk_mi solver (for cases with thermal loads)")
+                    prob.solve(verbose=self.verbose_opt, solver=cvx.GLPK_MI)
+                else:
+                    TellUser.debug("ecos_bb solver")
+                    prob.solve(verbose=self.verbose_opt, solver=cvx.ECOS_BB)
                 end = time.time()
-                TellUser.debug("ecos solver")
                 TellUser.info("Time it takes for solver to finish: " + str(end - start))
-        except (cvx.error.SolverError, RuntimeError) as cvx_error_msg:
+        except (cvx.error.SolverError, RuntimeError) as e:
             TellUser.error("The solver was unable to find a solution.")
+            cvx_error_msg = e
         return prob, obj_expression, cvx_error_msg
 
     def save_optimization_results(self, opt_window_num, sub_index, prob, obj_expression, cvx_error_msg):
@@ -482,12 +515,16 @@ class Scenario(object):
         """
         TellUser.info(f'Optimization problem was {prob.status}')
         # save solver used
-        self.solvers.append(prob.solver_stats.solver_name)
+        try:
+            self.solvers.append(prob.solver_stats.solver_name)
+        except AttributeError:
+            pass
 
-        if (prob.status == 'infeasible') or (prob.status == 'unbounded'):
+        if (prob.status == 'infeasible') or (prob.status == 'unbounded') or (prob.status is None):
             # tell the user and throw an error specific to the problem being infeasible/unbounded
             error_msg = f'Optimization window {opt_window_num} was {prob.status}. No solution found. Look in *.log for for information'
             TellUser.error(cvx_error_msg)
+            #TellUser.close_log()
             raise cvx.SolverError(error_msg)
         # evaluate optimal objective expression
         for cost, func in obj_expression.items():

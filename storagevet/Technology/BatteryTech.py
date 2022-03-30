@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021, Electric Power Research Institute
+Copyright (c) 2022, Electric Power Research Institute
 
  All rights reserved.
 
@@ -54,6 +54,7 @@ class Battery(EnergyStorage):
            params (dict): params dictionary from dataframe for one case
         """
         TellUser.debug(f"Initializing {__name__}")
+        self.tag = 'Battery'
         # create generic storage object
         super().__init__(params)
 
@@ -238,11 +239,11 @@ class Battery(EnergyStorage):
             tech_id = self.unique_tech_id()
             # the value of the energy consumed by the auxiliary load (housekeeping power) is assumed to be equal to the
             # value of energy for DA ETS, real time ETS, or retail ETS.
-            analysis_years = self.variables_df.index.year.unique()
+            optimization_years = self.variables_df.index.year.unique()
             hp_proforma = pd.DataFrame()
             if results.columns.isin(['Energy Price ($/kWh)']).any():
                 hp_cost = self.dt * -results.loc[:, 'Energy Price ($/kWh)'] * self.hp
-                for year in analysis_years:
+                for year in optimization_years:
                     year_monthly = hp_cost[hp_cost.index.year == year]
                     hp_proforma.loc[pd.Period(year=year, freq='y'), tech_id + 'Aux Load Cost'] = year_monthly.sum()
             # fill forward
