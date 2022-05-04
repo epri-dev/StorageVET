@@ -44,7 +44,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='storagevet',
-      version='1.2.0',
+      version='1.2.1',
       description='Storage value estimation tool',
       url='#',
       long_description=README,

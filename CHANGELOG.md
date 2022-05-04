@@ -5,6 +5,10 @@ Questions and feedback can be submitted to the Electric Power Research Institute
 
 The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.1] - 2022-03-31 to 2022-05-04
+### Changed
+- change in upstream dervet repo only
+
 ## [1.2.0] - 2021-09-08 to 2022-03-30
 ### Added
 - pytests to ensure that the default model parameter CSV file runs when input into run_StorageVET.py

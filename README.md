@@ -64,7 +64,7 @@ pip install -e ./storagevet
 ## Versioning
 
 We use [Gitlab](https://gitlab.epri.com/storagevet/storagevet) for versioning.
-This is version 1.2.0
+This is version 1.2.1
 
 ## Authors
 
