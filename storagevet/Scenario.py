@@ -524,8 +524,12 @@ class Scenario(object):
             # tell the user and throw an error specific to the problem being infeasible/unbounded
             error_msg = f'Optimization window {opt_window_num} was {prob.status}. No solution found. Look in *.log for for information'
             TellUser.error(cvx_error_msg)
-            #TellUser.close_log()
-            raise cvx.SolverError(error_msg)
+            if prob.status == 'infeasible':
+                raise SolverInfeasibleError(error_msg)
+            elif prob.status == 'unbounded':
+                raise SolverUnboundedError(error_msg)
+            else:
+                raise SolverError(error_msg)
         # evaluate optimal objective expression
         for cost, func in obj_expression.items():
             try:

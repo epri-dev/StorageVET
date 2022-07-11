@@ -54,6 +54,14 @@ TEMP_MP = DIR / f'temp_model_parameters'
 def setup_default_case(test_file):
     case = check_initialization(f'{test_file}{CSV}')
 
+def timeseries_data_error(test_file):
+    with pytest.raises(TimeseriesDataError):
+        results_instance = assert_ran(f'{test_file}{CSV}')
+
+def timeseries_missing_error(test_file):
+    with pytest.raises(TimeseriesMissingError):
+        results_instance = assert_ran(f'{test_file}{CSV}')
+
 def run_default_case(test_file):
     results_instance = assert_ran(f'{test_file}{CSV}')
 
@@ -100,4 +108,16 @@ def test_default_caes_active():
     temp_mp = modify_mp('Battery', value='no', mp_in=temp_mp, mp_out_tag='CAES')
     setup_default_case(temp_mp)
     run_default_case(temp_mp)
+    remove_temp_files(temp_mp)
+
+def test_default_pv_active_missing_pv_timeseries():
+    temp_mp = modify_mp('PV')
+    temp_mp = modify_mp('Scenario', key='time_series_filename', value='./test/datasets/pv_time_series_no_pv.csv', column='Value', mp_in=temp_mp, mp_out_tag='PV')
+    timeseries_missing_error(temp_mp)
+    remove_temp_files(temp_mp)
+
+def test_default_pv_active_bad_pv_data1():
+    temp_mp = modify_mp('PV')
+    temp_mp = modify_mp('Scenario', key='time_series_filename', value='./test/datasets/pv_time_series_bad_pv_data1.csv', column='Value', mp_in=temp_mp, mp_out_tag='PV')
+    timeseries_data_error(temp_mp)
     remove_temp_files(temp_mp)

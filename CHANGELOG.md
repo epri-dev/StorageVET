@@ -5,6 +5,21 @@ Questions and feedback can be submitted to the Electric Power Research Institute
 
 The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.2] - 2022-05-05 to 2022-07-07
+### Added
+- introduce 3 new cvx solver error types:
+  - SolverInfeasibleError, SolverUnboundedError and SolverError
+  - adds tests for these by reading in bad data
+### Changed
+- improved handling of input time series data
+  - new method: get_single_series()
+  - introduce more specific error classes: TimeseriesDataError and TimeseriesMissingError
+  - better error and warning messaging and readability
+- sets all min and max battery constraint values to empty in the default input time series
+- adds column: LF Price ($/kW) to default time series
+### Removed
+- remove line where all missing/empty time series values are set to zero
+
 ## [1.2.1] - 2022-03-31 to 2022-05-04
 ### Changed
 - change in upstream dervet repo only

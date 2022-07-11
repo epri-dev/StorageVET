@@ -76,7 +76,8 @@ class Params:
     results_inputs = None
 
     input_error_raised = False
-    timeseries_error = False
+    timeseries_missing_error = False
+    timeseries_data_error = False
     monthly_error = False
 
     @classmethod
@@ -93,7 +94,8 @@ class Params:
         """
         # 1) INITIALIZE CLASS VARIABLES
         cls.input_error_raised = False
-        cls.timeseries_error = False
+        cls.timeseries_missing_error = False
+        cls.timeseries_data_error = False
         cls.monthly_error = False
         # SENSITIVITY contains all sensitivity variables as keys and their values as lists
         cls.sensitivity = {"attributes": dict(),
@@ -1103,7 +1105,11 @@ class Params:
             #TellUser.close_log()
             raise ModelParameterError(
                 "The model parameter has some errors associated to it. Please fix and rerun.")
-        if cls.timeseries_error:
+        if cls.timeseries_missing_error:
+            raise TimeseriesMissingError(
+                "A required column of data in the input time series CSV is missing. " +
+                "Check the log file, fix and rerun.")
+        if cls.timeseries_data_error:
             raise TimeseriesDataError(
                 "The values of the time series data has some errors associated" +
                 " to it. Check the log file, fix and rerun.")
@@ -1179,6 +1185,8 @@ class Params:
         # process time series and save it in place of the raw data
         time_series = self.process_time_series(raw_time_series, freq, dt, opt_years)
         scenario["time_series"] = time_series
+        # report on any missing values from each time series
+        scenario["time_series_nan_count"] = self.count_nans_time_series(time_series)
         # process monthly data and save it in place of the raw data
         monthly_data = self.process_monthly(raw_monthly_data, opt_years)
         scenario["monthly_data"] = monthly_data
@@ -1225,6 +1233,43 @@ class Params:
             frequency = '1min'
         return frequency
 
+    def get_single_series(self, ts, column_name, nan_count, description=None, bypass_key_error=False, allow_nans=False):
+        # if the column name does not exist in the data, an error ensues
+        # if NaNs are found in the data, the nan_count is recorded and an error ensues
+        #   return None on any error
+        # description is an optional argument
+        if description is None:
+            description = f"'{column_name}'"
+        single_ts = None
+        try:
+            single_ts = ts.loc[:, column_name]
+            nan_count = nan_count[column_name]
+            if nan_count != 0:
+                if allow_nans:
+                    TellUser.warning(f"The input timeseries data: '{column_name}' " +
+                                     f"has {nan_count} missing/NaN value(s). These will become " +
+                                      "filled in accordingly.")
+                else:
+                    self.record_timeseries_data_error(
+                        f"The input timeseries data: '{column_name}' has {nan_count} " +
+                        "missing/NaN value(s). Please make sure that each value is a number.")
+        except KeyError:
+            if bypass_key_error:
+                pass
+            else:
+                self.record_timeseries_missing_error(
+                    f"Missing '{column_name}' from timeseries input. " +
+                    f"Please include {description} in timeseries csv")
+        return single_ts
+
+    def count_nans_time_series(self, time_series):
+        # report on the number of nans in each time series
+        # returns a dict with an integer value for each time series key (name)
+        nans_count = dict()
+        for ts_key, ts_val in time_series.items():
+            nans_count[ts_key] = ts_val.isnull().sum()
+        return nans_count
+
     def process_time_series(self, time_series, freq, dt, opt_years):
         """ Given a time series data frame, transforms index into time-step beginning and preforms
         basic checks on the data with the scenario defined
@@ -1249,7 +1294,7 @@ class Params:
             time_series = time_series.sort_index()  # make sure all the time_stamps are in order
             yr_included = time_series.index.year.unique()
         else:
-            self.record_timeseries_error(
+            self.record_timeseries_data_error(
                 'The time series does not start at the beginning of the day. ' +
                 'Please start with hour as 1 or 0.')
             return time_series
@@ -1258,7 +1303,7 @@ class Params:
         hours_in_years = [8784 if is_leap_yr(data_year) else 8760 for data_year in yr_included]
         expected_data_length = sum(hours_in_years) / dt
         if len(time_series) != expected_data_length:
-            self.record_timeseries_error(
+            self.record_timeseries_data_error(
                 f"The expected data length does not match with the length of the given data " +
                 f"({len(time_series)}).\nWe detected {yr_included.values} are included, and " +
                 f"{[data_year for data_year in yr_included if is_leap_yr(data_year)]}" +
@@ -1270,26 +1315,37 @@ class Params:
         new_indx = create_timeseries_index(yr_included, freq)
         time_series.index = new_indx
         time_series.columns = [column.strip() for column in time_series.columns]
-        time_series.fillna(value=0, inplace=True)
+        # NOTE: empty data values are left empty
 
         # make sure that opt_years are defined in time series data
         time_series_index = time_series.index
         if set(opt_years) != set(yr_included):
-            self.record_timeseries_error(
+            self.record_timeseries_data_error(
                 f"The 'opt_years' input should coinside with data in the " +
                 f"Time Series file. {opt_years} != {set(yr_included)}")
         return time_series
 
     @classmethod
-    def record_timeseries_error(cls, error_message):
+    def record_timeseries_data_error(cls, error_message):
         """ logs an error message to the user and mark the class as un-able to run.
 
         Args:
             error_message (str): string error message
 
         """
-        TellUser.error("ERROR: " + error_message)
-        cls.timeseries_error = True
+        TellUser.error(error_message)
+        cls.timeseries_data_error = True
+
+    @classmethod
+    def record_timeseries_missing_error(cls, error_message):
+        """ logs an error message to the user and mark the class as un-able to run.
+
+        Args:
+            error_message (str): string error message
+
+        """
+        TellUser.error(error_message)
+        cls.timeseries_missing_error = True
 
     def process_monthly(self, monthly_data, opt_years):
         """ processing monthly data.
@@ -1326,7 +1382,7 @@ class Params:
             error_message (str): string error message
 
         """
-        TellUser.error("ERROR: " + error_message)
+        TellUser.error(error_message)
         cls.monthly_error = True
 
     @classmethod
@@ -1337,7 +1393,7 @@ class Params:
             error_message (str): string error message
 
         """
-        TellUser.error("ERROR: " + error_message)
+        TellUser.error(error_message)
         cls.input_error_raised = True
 
     def load_finance(self):
@@ -1368,6 +1424,7 @@ class Params:
         """
         scenario = self.Scenario
         time_series = scenario['time_series']
+        time_series_nan_count = scenario['time_series_nan_count']
         monthly_data = scenario['monthly_data']
         freq = scenario['frequency']
         dt = scenario['dt']
@@ -1418,24 +1475,19 @@ class Params:
                               'dt': dt})
             names_list.append(bat_input['name'])
 
+        # add scenario case parameters to PV parameter dictionary
         for id_str, pv_input_tree in self.PV.items():
-            if len(self.PV.keys()) == 1:
-                try:
-                    pv_input_tree.update({'rated gen': time_series.loc[:, f'PV Gen (kW/rated kW)'],
-                                          # 'growth': scenario['def_growth'],
-                                          'dt': dt})
-                    continue
-                except KeyError:
-                    pass
+            column_name = 'PV Gen (kW/rated kW)'
+            pv_input_tree['dt'] = dt
             names_list.append(pv_input_tree['name'])
-            # add time-series data and scenario case parameters to CAES parameter dictionary
-            try:
-                pv_input_tree.update({'rated gen': time_series.loc[:, f'PV Gen (kW/rated kW)/{id_str}'],
-                                      # 'growth': scenario['def_growth'],
-                                      'dt': dt})
-            except KeyError:
-                self.record_input_error(
-                    f"Missing 'PV Gen (kW/rated kW)/{id_str}' from timeseries input. Please include a PV generation.")
+            # first attempt to load the time series without the id_str, if there is a single instance of this technology
+            if len(self.PV.keys()) == 1:
+                ts_rated_gen = self.get_single_series(time_series, column_name, time_series_nan_count, 'PV Generation', bypass_key_error=True)
+                if ts_rated_gen is not None:
+                    pv_input_tree.update({'rated gen': ts_rated_gen})
+                    continue
+            # second attempt to load the time series with the id_str
+            pv_input_tree.update({'rated gen': self.get_single_series(time_series, f'{column_name}/{id_str}', time_series_nan_count, 'PV Generation')})
 
         # add scenario case parameters to ICE parameter dictionary
         for ice_input in self.ICE.values():
@@ -1470,30 +1522,9 @@ class Params:
                                'ecc%': 0,
                                }
                          }
-            col_name = "Site Load (kW)"
-            error_msg = f"Missing '{col_name}' from timeseries input. " \
-                        f"Please include a site load."
-            site_load_data = self.grab_column(time_series, col_name,
-                                              error_msg, '')
-            self.Load[key]['site_load'] = site_load_data
+            self.Load[key]['site_load'] = self.get_single_series(time_series, 'Site Load (kW)', time_series_nan_count, 'Site Load')
 
         TellUser.info("Successfully prepared the Technologies")
-
-    def grab_column(self, df, column_name, error, id_str=None):
-        """ Handles all getting of data
-
-        Args:
-            column_name (str):
-            df (DataFrame):
-            error (str): error message if not found
-
-        Returns: A Series of data
-
-        """
-        value = df.get(column_name)
-        if value is None:
-            self.record_input_error(error)
-        return value
 
     @staticmethod
     def monthly_to_timeseries(freq, column):
@@ -1528,55 +1559,39 @@ class Params:
         scenario = self.Scenario  # dictionary of scenario inputs
         monthly_data = scenario['monthly_data']
         time_series = scenario['time_series']
+        time_series_nan_count = scenario['time_series_nan_count']
         dt = scenario['dt']
         freq = scenario['frequency']
 
         if self.Deferral is not None:
-            try:
-                self.Deferral.update({
-                    'load': time_series.loc[:, 'Deferral Load (kW)'],
-                    'last_year': scenario["end_year"],
-                    'dt': dt
-                })
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'Deferral Load (kW)' from timeseries input. Please include a deferral load.")
+            self.Deferral.update({
+                'load': self.get_single_series(time_series, 'Deferral Load (kW)', time_series_nan_count, 'Deferral Load'),
+                'last_year': scenario["end_year"],
+                'dt': dt
+            })
 
         if self.Volt is not None:
-            try:
-                # make sure that vars reservation inputs are between 0 and 100
-                percent = time_series.loc[:, 'VAR Reservation (%)']
-                if len([*filter(lambda x: x > 100, percent.value)]) or len(
-                        [*filter(lambda x: x < 0, percent.value)]):
-                    self.record_input_error(
-                        "Value error within 'Vars Reservation (%)' timeseries. Please " +
-                        "include the vars reservation as percent (from 0 to 100) of inverter max.")
-                self.Volt['percent'] = percent
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'Vars Reservation (%)' from timeseries input. Please " +
-                    "include the vars reservation as percent (from 0 to 100) of inverter max.")
             self.Volt['dt'] = dt
+            percent = self.get_single_series(time_series, 'VAR Reservation (%)', time_series_nan_count,
+                      'Vars Reservations as a percent (0 to 100) of inverter max')
+            # make sure that vars reservation inputs are between 0 and 100
+            if len([*filter(lambda x: x > 100, percent.value)]) or len(
+                    [*filter(lambda x: x < 0, percent.value)]):
+                self.record_timeseries_data_error(
+                    "Value error within 'Vars Reservation (%)' timeseries. Please " +
+                    "include the vars reservation as percent (from 0 to 100) of inverter max.")
+            self.Volt['percent'] = percent
 
         if self.RA is not None:
             if 'active hours' in self.RA['idmode'].lower():
                 # if using active hours, require the column
-                try:
-                    self.RA['active'] = time_series.loc[:, 'RA Active (y/n)']
-                except KeyError:
-                    self.record_input_error(
-                        "Missing 'RA Active (y/n)' from timeseries input. Please include when RA is active.")
-
+                self.RA['active'] = self.get_single_series(time_series, 'RA Active (y/n)', time_series_nan_count, 'when RA is active')
             try:
                 self.RA['value'] = monthly_data.loc[:, 'RA Capacity Price ($/kW)']
             except KeyError:
                 self.record_input_error(
                     "Missing 'RA Price ($/kW)' from monthly CSV input. Please include monthly RA price.")
-            try:
-                self.RA['system_load'] = time_series.loc[:, "System Load (kW)"]
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'System Load (kW)' from timeseries input. Please include a system load.")
+            self.RA['system_load'] = self.get_single_series(time_series, "System Load (kW)", time_series_nan_count, 'System Load')
             self.RA.update({'default_growth': scenario['def_growth'],
                             # applied to system load if 'forecasting' load
                             'dt': dt})
@@ -1603,11 +1618,7 @@ class Params:
             except KeyError:
                 self.record_monthly_error(
                     "Missing 'DR Capacity (kW)' from monthly input. Please include a DR capacity.")
-            try:
-                self.DR['system_load'] = time_series.loc[:, "System Load (kW)"]
-            except KeyError:
-                self.record_timeseries_error(
-                    "Missing 'System Load (kW)' from timeseries input. Please include a system load.")
+            self.DR['system_load'] = self.get_single_series(time_series, "System Load (kW)", time_series_nan_count, 'System Load')
             self.DR.update({'default_growth': scenario['def_growth'],
                             'dt': dt})
 
@@ -1629,88 +1640,46 @@ class Params:
                 self.record_input_error(
                     "Missing 'Backup Energy (kWh)' from monthly data input. Please include Backup Energy in monthly data csv.")
         if self.SR is not None:
-            try:
-                self.SR.update({'price': time_series.loc[:, 'SR Price ($/kW)'],
-                                'dt': dt})
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'SR Price ($/kW)' from timeseries input. Please include Spinning Reserve price in timeseries cvs")
+            self.SR['dt'] = dt
+            self.SR.update({'price': self.get_single_series(time_series, 'SR Price ($/kW)', time_series_nan_count, 'Spinning Reserve Price')})
 
         if self.NSR is not None:
-            try:
-                self.NSR.update({'price': time_series.loc[:, 'NSR Price ($/kW)'],
-                                 'dt': dt})
-            except KeyError:
-                self.record_input_error("Missing 'NSR Price ($/kW)' from timeseries input." +
-                                        "Please include Nonspinning Reserve price in timeseries cvs")
+            self.NSR['dt'] = dt
+            self.NSR.update({'price': self.get_single_series(time_series, 'NSR Price ($/kW)', time_series_nan_count, 'Non-Spinning Reserve Price')})
 
         if self.DA is not None:
-            try:
-                self.DA.update({'price': time_series.loc[:, 'DA Price ($/kWh)'],
-                                'dt': dt})
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'DA Price ($/kWh)' from timeseries input. Please include DA ETS price in timeseries cvs")
+            self.DA['dt'] = dt
+            self.DA.update({'price': self.get_single_series(time_series, 'DA Price ($/kWh)', time_series_nan_count, 'DA ETS price')})
 
         if self.FR is not None:
             self.FR['dt'] = dt
-            try:
-                self.FR.update({'energy_price': time_series.loc[:, 'DA Price ($/kWh)']})
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'DA Price ($/kWh)' from timeseries input. Please include DA ETS price in timeseries cvs")
+            self.FR.update({'energy_price': self.get_single_series(time_series, 'DA Price ($/kWh)', time_series_nan_count, 'DA ETS price')})
             if self.FR['CombinedMarket']:
-                try:
+                fr_price_ts = self.get_single_series(time_series, 'FR Price ($/kW)', time_series_nan_count, 'Frequency Regulation price')
+                if fr_price_ts is not None:
                     self.FR.update(
-                        {'regu_price': np.divide(time_series.loc[:, 'FR Price ($/kW)'], 2),
-                         'regd_price': np.divide(time_series.loc[:, 'FR Price ($/kW)'], 2)})
-                except KeyError:
-                    self.record_input_error("Missing 'FR Price ($/kW)' from timeseries input. " +
-                                            "Please include Frequency Regulation price in timeseries cvs")
+                        {'regu_price': np.divide(fr_price_ts, 2),
+                         'regd_price': np.divide(fr_price_ts, 2)})
             else:
-                try:
-                    self.FR.update({'regu_price': time_series.loc[:, 'Reg Up Price ($/kW)'],
-                                    'regd_price': time_series.loc[:, 'Reg Down Price ($/kW)']})
-                except KeyError:
-                    self.record_input_error(
-                        "Missing 'Reg Down Price ($/kW)' and/or 'Reg Up Price ($/kW)' from timeseries input. " +
-                        "Please include Frequency Regulation (regulation up/down) price in timeseries cvs")
+                self.FR.update(
+                    {'regu_price': self.get_single_series(time_series, 'Reg Up Price ($/kW)', time_series_nan_count, 'Frequency Regulation Up price'),
+                     'regd_price': self.get_single_series(time_series, 'Reg Down Price ($/kW)', time_series_nan_count, 'Frequency Regulation Down price')})
 
         if self.LF is not None:
-            try:
-                self.LF.update({'energy_price': time_series.loc[:, 'DA Price ($/kWh)'],
-                                'dt': dt})
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'DA Price ($/kWh)' from timeseries input. Please include DA ETS price in timeseries cvs")
+            self.LF['dt'] = dt
+            self.LF.update({'energy_price': self.get_single_series(time_series, 'DA Price ($/kWh)', time_series_nan_count, 'DA ETS price')})
             if self.LF['CombinedMarket']:
-                try:
+                lf_price_ts = self.get_single_series(time_series, 'LF Price ($/kW)', time_series_nan_count, 'Load Following price')
+                if lf_price_ts is not None:
                     self.LF.update(
-                        {'regu_price': np.divide(time_series.loc[:, 'LF Price ($/kW)'], 2),
-                         'regd_price': np.divide(time_series.loc[:, 'LF Price ($/kW)'], 2)})
-                except KeyError:
-                    self.record_input_error("Missing 'LF Price ($/kW)' from timeseries input. " +
-                                            "Please include load following price in timeseries cvs")
+                        {'regu_price': np.divide(lf_price_ts, 2),
+                         'regd_price': np.divide(lf_price_ts, 2)})
             else:
-                try:
-                    self.LF.update({'regu_price': time_series.loc[:, 'LF Up Price ($/kW)'],
-                                    'regd_price': time_series.loc[:, 'LF Down Price ($/kW)']})
-                except KeyError:
-                    self.record_input_error(
-                        "Missing 'LF Down Price ($/kW)' and/or 'LF Up Price ($/kW)' from timeseries input. " +
-                        "Please include load following (regulation up/down) price in timeseries cvs")
-            try:
-                self.LF['eou'] = time_series.loc[:, 'LF Energy Option Up (kWh/kW-hr)']
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'LF Energy Option Up (kWh/kW-hr)' from timeseries input. " +
-                    "Please include the load following offset in timeseries cvs")
-            try:
-                self.LF['eod'] = time_series.loc[:, 'LF Energy Option Down (kWh/kW-hr)']
-            except KeyError:
-                self.record_input_error(
-                    "Missing 'LF Energy Option Down (kWh/kW-hr)' from timeseries input. " +
-                    "Please include the load following offset in timeseries cvs")
+                self.LF.update(
+                    {'regu_price': self.get_single_series(time_series, 'LF Up Price ($/kW)', time_series_nan_count, 'Load Following Up price'),
+                     'regd_price': self.get_single_series(time_series, 'LF Down Price ($/kW)', time_series_nan_count, 'Load Following Down price')})
+            self.LF['eou'] = self.get_single_series(time_series, 'LF Energy Option Up (kWh/kW-hr)', time_series_nan_count, 'Load Following offset')
+            self.LF['eod'] = self.get_single_series(time_series, 'LF Energy Option Down (kWh/kW-hr)', time_series_nan_count, 'Load Following offset')
 
         if self.User is not None:
             # check to make sure the user included at least one of the custom constraints
@@ -1718,15 +1687,22 @@ class Params:
                           "POI: Max Import (kW)", "POI: Min Import (kW)",
                           "Aggregate Energy Max (kWh)", "Aggregate Energy Min (kWh)"]
             if not time_series.columns.isin(input_cols).any():
-                self.record_input_error(
-                    f"User has not incldued any of the following: {input_cols}" +
-                    "Please add atleast one and run again.")
-            power = time_series.loc[:, list(np.intersect1d(input_cols[:-2], list(time_series)))]
-            energy = time_series.loc[:, list(np.intersect1d(input_cols[-2:], list(time_series)))]
+                self.record_timeseries_missing_error(
+                    f"User has not included any of the following time series: {input_cols}. " +
+                    "Please add at least one and run again.")
+            # power time series columns (first 4 in input_cols list)
+            power = pd.DataFrame(index=time_series.index)
+            for power_ts_name in np.intersect1d(input_cols[:-2], time_series.columns):
+                power = pd.concat([power, self.get_single_series(time_series, power_ts_name, time_series_nan_count)], axis=1)
+            # energy time series columns (last 2 in input_cols list)
+            energy = pd.DataFrame(index=time_series.index)
+            for energy_ts_name in np.intersect1d(input_cols[-2:], time_series.columns):
+                energy = pd.concat([energy, self.get_single_series(time_series, energy_ts_name, time_series_nan_count)], axis=1)
+            # further restrict values in these time series
             for col in power.columns:
-                self.req_dont_cross_zero(power[col].values, col)
+                self.req_no_zero_crossings(power[col].values, col)
             for col in energy.columns:
-                self.req_all_positive(energy[col].values, col)
+                self.req_all_non_negative(energy[col].values, col)
             self.User.update({'power': power,
                               'energy': energy,
                               'dt': dt})
@@ -1753,7 +1729,7 @@ class Params:
         TellUser.info("Successfully prepared the value-stream (services)")
 
     @classmethod
-    def req_all_positive(cls, array, name):
+    def req_all_non_negative(cls, array, name):
         """ Records a timeseries error is the given array contains ANY negative values
 
         Args:
@@ -1762,12 +1738,13 @@ class Params:
 
         """
         if np.any(array < 0):
-            cls.timeseries_error = True
+            cls.timeseries_data_error = True
             TellUser.error(
-                f"{name} contains some negative numbers. Please only give positive values.")
+                f"The input timeseries data: '{name}' contains some negative numbers. "
+                + "Please only give positive or zero values.")
 
     @classmethod
-    def req_dont_cross_zero(cls, array, name):
+    def req_no_zero_crossings(cls, array, name):
         """ Records a timeseries error if the given array contains positive AND negative values
 
         Args:
@@ -1776,7 +1753,8 @@ class Params:
 
         """
         if np.any(array < 0) and np.any(array > 0):
-            cls.timeseries_error = True
+            cls.timeseries_data_error = True
             TellUser.error(
-                f"{name} contains some negative and some positive values. This column constrains"
-                + " power in one direction. Please choose either all positive values or all negative.")
+                f"The input timeseries data: '{name}' contains some negative and some positive values. "
+                + "This column constrains power in one direction. "
+                + "Please choose either all positive values or all negative. Zero values are also allowed.")

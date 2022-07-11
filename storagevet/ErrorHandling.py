@@ -37,11 +37,27 @@ import logging
 from pathlib import Path
 
 
+class SolverError(Exception):
+    pass
+
+
+class SolverInfeasibleError(Exception):
+    pass
+
+
+class SolverUnboundedError(Exception):
+    pass
+
+
 class ModelParameterError(Exception):
     pass
 
 
 class TimeseriesDataError(Exception):
+    pass
+
+
+class TimeseriesMissingError(Exception):
     pass
 
 
