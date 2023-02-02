@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -111,24 +111,24 @@ class ServiceAggregator:
                 self.sys_requirements[limit_key] = sys_requ
 
         # report the datetimes and VS that contributed to the conflict
-        # 1) check if charge max and charge min conflict
-        if self.sys_requirements.get('charge min') is not None and self.sys_requirements.get('charge max') is not None:
-            charge_conflicts = self.sys_requirements.get('charge min') > self.sys_requirements.get('charge max')
-            self.report_conflict(charge_conflicts, ['charge min', 'charge max'])
+        # 1) check if poi import max and poi import min conflict
+        if self.sys_requirements.get('poi import min') is not None and self.sys_requirements.get('poi import max') is not None:
+            poi_import_conflicts = self.sys_requirements.get('poi import min') > self.sys_requirements.get('poi import max')
+            self.report_conflict(poi_import_conflicts, ['poi import min', 'poi import max'])
         # 2) check if energy max and energy min conflict
         if self.sys_requirements.get('energy min') is not None and self.sys_requirements.get('energy max') is not None:
             energy_conflicts = self.sys_requirements.get('energy min') > self.sys_requirements.get('energy max')
             self.report_conflict(energy_conflicts, ['energy min', 'energy max'])
-        # 3) check if discharge max and discharge min conflict
-        if self.sys_requirements.get('discharge min') is not None and self.sys_requirements.get('discharge max') is not None:
-            discharge_conflicts = self.sys_requirements.get('discharge min') > self.sys_requirements.get('discharge max')
-            self.report_conflict(discharge_conflicts, ['discharge min', 'discharge max'])
-        # 4) check if discharge min and charge min conflict (cannot be nonzero at the same time)
-        if self.sys_requirements.get('charge min') is not None and self.sys_requirements.get('discharge min') is not None:
-            charge_and_discharge = (self.sys_requirements.get('charge min') != 0) & (self.sys_requirements.get('discharge min') != 0)
-            self.report_conflict(charge_and_discharge, ['charge min', 'discharge min'])
+        # 3) check if poi export max and poi export min conflict
+        if self.sys_requirements.get('poi export min') is not None and self.sys_requirements.get('poi export max') is not None:
+            poi_export_conflicts = self.sys_requirements.get('poi export min') > self.sys_requirements.get('poi export max')
+            self.report_conflict(poi_export_conflicts, ['poi export min', 'poi export max'])
+        # 4) check if poi export min and poi import min conflict (cannot be > 0 (nonzero at input) at the same time)
+        if self.sys_requirements.get('poi import min') is not None and self.sys_requirements.get('poi export min') is not None:
+            poi_import_and_poi_export_conflicts = (self.sys_requirements.get('poi import min') > 0) & (self.sys_requirements.get('poi export min') > 0)
+            self.report_conflict(poi_import_and_poi_export_conflicts, ['poi import min', 'poi export min'])
         if self.system_requirements_conflict:
-            raise ArithmeticError('System requirements are not possible. Check log files for more information.')
+            raise SystemRequirementsError('System requirements are not possible. Check log files for more information.')
         else:
             return self.sys_requirements
 

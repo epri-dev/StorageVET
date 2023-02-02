@@ -14,9 +14,31 @@ These instructions will get you a copy of the project up and running on your loc
 
 #### 3. Activate Python 3.8 environment
 
+    It is recommended that the latest Python 3.8 version be used. As of this writing, that version is Python 3.8.16
+    We give the user 2 routes to create a python environment for python 3.8.16
+   >Most Windows users have success with the Conda route.
+
+    Each route results in a siloed python environment, but with different properties.
+    Choose the conda OR pip route and stick to it. Commands are not interchangeable.
+    >Please remember the route which created the python environment in order to activate it again later.
+   > **You will need to activate the python environment to run the model, always.**
+
+    **Conda Route - Recommended route for Windows OS**
+
+Note that the python version is specified, meaning conda does not have to be associated with a python 3.8
+```
+conda create -n storagevet-venv python=3.8.16
+conda activate storagevet-venv
+```
+
+**Pip Route**
+
+    If you have Python 3.8.16 installed directly on your computer, then we recommend trying this route.
+   >This route lets you to open the prompt of your choice.
+Note that pip should be associated to a python 3.8 installation
+
 On Linux/Mac
 
-Note that pip should be associated to a python 3.8 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
@@ -24,22 +46,22 @@ source storagevet-venv/bin/activate
 ```
 On Windows
 
-Note that pip should be associated to a python 3.8 installation
 ```
 pip install virtualenv
 virtualenv storagevet-venv
 "./storagevet-venv/Scripts/activate"
 ```
-With Conda
-
-Note that the python version is specified, meaning conda does not have to be associated with a python 3.8
-```
-conda create -n storagevet-venv python=3.8.13
-conda activate storagevet-venv
-```
 
 #### 3. Install project dependencies
 
+**Conda Route**
+```
+pip install setuptools==52.0.0
+conda install conda-forge::blas=*=openblas --file requirements.txt --file requirements-dev.txt
+pip install numpy_financial==1.0.0
+```
+
+**Pip Route**
 ```
 pip install setuptools==52.0.0
 pip install -r requirements.txt -r requirements-dev.txt
@@ -63,8 +85,9 @@ pip install -e ./storagevet
 
 ## Versioning
 
-We use [Gitlab](https://gitlab.epri.com/storagevet/storagevet) for versioning.
-This is version 1.2.2
+For the versions available, please
+see the [list of releases](https://github.com/epri-dev/StorageVET/releases) on out GitHub repository.
+This is version 1.2.3
 
 ## Authors
 

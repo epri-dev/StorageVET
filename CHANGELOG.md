@@ -5,6 +5,40 @@ Questions and feedback can be submitted to the Electric Power Research Institute
 
 The format is based on [Keep a Changelog] (https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.3] - 2023-01-26
+### Fixed
+- simplify the README
+- bypass check on valid project start and end year when analysis-horizon-mode is not set to 1
+- update the README package installation procedure to align with the dervet README
+- Energy Storage 'SOC %' in the output timeseries CSV should have values ranging from 0 to 100 (and not a fraction of 1)
+- remove triple equals sign from line in the requirements file
+- allow om_cost to end up in the proforma output CSV file for technologies
+- handle the timestep input in a more robust way to avoid uncaught code failures
+- allow Backup Energy Service to create a minum energy constraint
+- allow cases with two different construction-year values to not fail
+- do not ignore the Battery auxiliary-load (hp) input
+  - add this to the Total Load, and in the agg_power variables for POI constraints
+- corrects the DR and RA minimum der dispatch power constraints
+  - exclude power from Load and Intermittent-Resource Technologies
+### Added
+- make reading of model parameters more robust
+- attaches 'User Constraints' label to output timeseries user constraint columns
+- add SystemRequirementError class
+- pytests added
+  - for valid timestep frequencies
+  - for POI constrsints
+  - for Energy constraints
+  - for DR minimum power constraints
+- make the testing library methods more robust and easier to use
+### Changed
+- allow the growth of value streams in non-optimization years
+  - for DemandResponse, ResourceAdequacy, and UserConstraints
+- remove all API keys from this repo
+- re-work the way system requirements are applied as constraints
+  - to ensure that once created, a system requirement cannot be ignored
+- redefine the agg_power variables in POI to include generation from all technologies
+  - with both charge and discharge components
+
 ## [1.2.2] - 2022-05-05 to 2022-07-07
 ### Added
 - introduce 3 new cvx solver error types:

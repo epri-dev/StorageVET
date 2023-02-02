@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -32,17 +32,22 @@ import pprint
 import Period as period
 import EnergyTier as et
 import xlsxwriter
-import os
+import os, sys
 import pandas as pd
 
+USERS_OPENEI_API_KEY = ''
+ADDRESS = '3420 Hillview Ave, Palo Alto, CA 94304'
+LIMIT = 20
 
 class API:
     def __init__(self):
         self.URL = "https://api.openei.org/utility_rates"
-        self.PARAMS = {'version': 5, 'api_key': 'AHNGCVlcEKTgH6fgr1bXiSnneVb00masZcjSgp3I', 'format': 'json',
-                       'getpage': '5b78ba715457a3bf45af0aea', 'limit': 20}  # 'address': '302 College Ave, Palo Alto'
+        self.PARAMS = {'version': 5, 'api_key': USERS_OPENEI_API_KEY, 'format': 'json',
+                       'address': ADDRESS, 'limit': LIMIT}
         self.r = requests.get(url=self.URL, params=self.PARAMS)
         self.data = self.r.json()
+        if 'error' in self.data.keys():
+            raise Exception(f'\nBad API call: {self.data["error"]}')
         self.tariff = None
         self.energyratestructure = []
         self.energyweekdayschedule = []
@@ -100,8 +105,11 @@ class API:
 
         """
         i = index
+        while i not in range(1, LIMIT + 1):
+            print('That index is out of range, please try another...')
+            i = int(input("Which tariff would you like to use?..."))
         label = self.data["items"][i - 1]["label"]
-        params = {'version': 5, 'api_key': 'AHNGCVlcEKTgH6fgr1bXiSnneVb00masZcjSgp3I', 'format': 'json', 'getpage': label, 'detail': 'full'}
+        params = {'version': 5, 'api_key': USERS_OPENEI_API_KEY, 'format': 'json', 'getpage': label, 'detail': 'full'}
         r = requests.get(url=self.URL, params=params)
         self.tariff = r.json()
 
@@ -375,10 +383,12 @@ class API:
         self.print_energy_structure()
         self.calendar()
         file = "calendar.xlsx"
-        os.startfile(file)
-        response = input("Type 'ready' when you are done editing the excel file...")
-        while response != "ready":
+        # in Windows os, you can edit the spreadsheet here first
+        if sys.platform.startswith('win'):
+            os.startfile(file)
             response = input("Type 'ready' when you are done editing the excel file...")
+            while response != "ready":
+                response = input("Type 'ready' when you are done editing the excel file...")
         self.read_calendar()
 
 

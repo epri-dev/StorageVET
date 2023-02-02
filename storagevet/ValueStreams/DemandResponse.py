@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -66,6 +66,7 @@ class DemandResponse(ValueStream):
         self.start_hour = params['program_start_hour']
         self.end_hour = params.get('program_end_hour')  # last hour of the program
         self.day_ahead = params['day_ahead']  # indicates whether event is scheduled in real-time or day ahead
+        self.growth = params['growth'] / 100  # growth rate of DR prices, convert from % to decimal
 
         # handle length and end_hour attributes here
         self.fill_dr_event_details()
@@ -83,9 +84,7 @@ class DemandResponse(ValueStream):
         # the following attributes will be used to save values during analysis
         self.qc = None
         self.qe = None
-        self.charge_max_constraint = pd.Series()
-        self.discharge_min_constraint = pd.Series()
-        self.energy_min_constraint = pd.Series()
+        self.der_dispatch_discharge_min_constraint = pd.Series()
         self.possible_event_times = None
 
     def fill_dr_event_details(self):
@@ -169,10 +168,8 @@ class DemandResponse(ValueStream):
         self.possible_event_times = indx_dr_days
 
         if self.day_ahead:
-            self.charge_max_constraint = pd.Series(np.zeros(len(indx_dr_days)), index=indx_dr_days, name='DR Charge Max (kW)')
-            self.discharge_min_constraint = pd.Series(qc, index=indx_dr_days, name='DR Discharge Min (kW)')
-            self.system_requirements += [Requirement('discharge', 'min', self.name, self.discharge_min_constraint),
-                                         Requirement('charge', 'max', self.name, self.charge_max_constraint)]
+            self.der_dispatch_discharge_min_constraint = pd.Series(qc, index=indx_dr_days, name='DR Discharge Min (kW)')
+            self.system_requirements += [Requirement('der dispatch discharge', 'min', self.name, self.der_dispatch_discharge_min_constraint)]
         else:
             self.qualifying_energy()
 
@@ -339,7 +336,7 @@ class DemandResponse(ValueStream):
                     energy_payment * self.dt
         # apply inflation rates
         proforma = apply_inflation_rate_func(proforma, None, min(opt_years))
-
+        proforma = fill_forward_func(proforma, self.growth)
         return proforma
 
     def timeseries_report(self):
@@ -352,8 +349,9 @@ class DemandResponse(ValueStream):
         report = pd.DataFrame(index=self.system_load.index)
         report.loc[:, "System Load (kW)"] = self.system_load
         if self.day_ahead:
-            report.loc[:, self.discharge_min_constraint.name] = 0
-            report.update(self.discharge_min_constraint)
+            TellUser.info(f'Setting the "{self.der_dispatch_discharge_min_constraint.name}" to 0 in the output time series during non-events')
+            report.loc[:, self.der_dispatch_discharge_min_constraint.name] = 0
+            report.update(self.der_dispatch_discharge_min_constraint)
         else:
             report.loc[:, 'DR Possible Event (y/n)'] = False
             report.loc[self.possible_event_times, 'DR Possible Event (y/n)'] = True

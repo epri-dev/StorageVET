@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -44,7 +44,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='storagevet',
-      version='1.2.2',
+      version='1.2.3',
       description='Storage value estimation tool',
       url='#',
       long_description=README,

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -84,7 +84,7 @@ class Backup(ValueStream):
 
         """
         # backup energy adds a minimum energy level
-        self.system_requirements.append(Requirement('SOE', 'min', self.name, self.energy_req))
+        self.system_requirements.append(Requirement('energy', 'min', self.name, self.energy_req))
 
     def monthly_report(self):
         """  Calculates the monthly cost or benefit of the service and adds them to the monthly financial result dataframe

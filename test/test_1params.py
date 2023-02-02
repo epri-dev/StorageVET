@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -37,9 +37,36 @@ import pytest
 from pathlib import Path
 from test.TestingLib import *
 from storagevet.ErrorHandling import *
+from test.test_default_model_parameters import *
 
 
 DIR = Path("./test/model_params")
+
+"""
+Timestep frequency checks
+"""
+
+def test_invalid_dt():
+    # invalid dt
+    # loop through invalid dt values
+    # should raise error for each dt_val in the loop
+    for dt_val in [0.01, 0.08, 0.15, 0.2, 0.66, 2, -1]:
+        temp_mp = modify_mp('Scenario', key='dt', value=dt_val, column='Value')
+        with pytest.raises(ModelParameterError):
+            setup_default_case(temp_mp)
+    remove_temp_files(temp_mp)
+
+
+def test_freq_mismatch_dt_timeseries():
+    # timestep freq mismatch between dt and length of timeseries data
+    # loop through valid dt values that are not 1-hour
+    # should raise error for each dt_val in the loop
+    for dt_val in [0.5, 0.25, 0.166, 0.167, 0.083, 0.016, 0.0167, 0.016666666, 0.0166666667]:
+        print(f'testing when dt = {dt_val}')
+        temp_mp = modify_mp('Scenario', key='dt', value=dt_val, column='Value')
+        with pytest.raises(TimeseriesDataError):
+            setup_default_case(temp_mp)
+    remove_temp_files(temp_mp)
 
 
 """

@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -43,48 +43,24 @@ import pandas
 from storagevet.ErrorHandling import *
 from test.TestingLib import *
 
-DIR = Path("./")
-JSON = '.json'
-CSV = '.csv'
-
-DEFAULT_MP = DIR / f'Model_Parameters_Template'
-TEMP_MP = DIR / f'temp_model_parameters'
-
 
 def setup_default_case(test_file):
     case = check_initialization(f'{test_file}{CSV}')
 
 def timeseries_data_error(test_file):
     with pytest.raises(TimeseriesDataError):
-        results_instance = assert_ran(f'{test_file}{CSV}')
+        assert_ran(f'{test_file}{CSV}')
 
 def timeseries_missing_error(test_file):
     with pytest.raises(TimeseriesMissingError):
-        results_instance = assert_ran(f'{test_file}{CSV}')
+        assert_ran(f'{test_file}{CSV}')
 
 def run_default_case(test_file):
-    results_instance = assert_ran(f'{test_file}{CSV}')
-
-def modify_mp(tag, key='name', value='yes', column='Active', mp_in=DEFAULT_MP, mp_out_tag=None):
-    # read in default MP, modify it, write it to a temp file
-    mp = pandas.read_csv(f'{mp_in}{CSV}')
-    indexes = (mp.Tag == tag) & (mp.Key == key)
-    indexes = indexes[indexes].index.values
-    if len(indexes) != 1:
-        raise Exception(f'a unique row from the default model parameters cannot be determined (tag: {tag}, key: {key}')
-    mp_cell = (indexes[0], column)
-    mp.loc[mp_cell] = value
-    if mp_out_tag is None:
-        tempfile_name = f'{TEMP_MP}--{tag}'
-    else:
-        tempfile_name = f'{TEMP_MP}--{mp_out_tag}'
-    mp.to_csv(f'{tempfile_name}{CSV}', index=False)
-    return tempfile_name
+    assert_ran(f'{test_file}{CSV}')
 
 def remove_temp_files(temp_mp):
     Path(f'{temp_mp}{CSV}').unlink()
     Path(f'{temp_mp}{JSON}').unlink()
-
 
 def test_default_asis():
     setup_default_case(DEFAULT_MP)

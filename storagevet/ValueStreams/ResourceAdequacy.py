@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -63,13 +63,13 @@ class ResourceAdequacy(ValueStream):
         if 'active hours' in self.idmode:
             self.active = params['active'] == 1  # active RA timesteps (length = 8760/dt) must be boolean, not int
         self.system_load = params['system_load']  # system load profile (length = 8760/dt)
+        self.growth = params['growth'] / 100  # growth rate of RA prices, convert from % to decimal
 
         # initialize the following atrributes to be set later
         self.peak_intervals = []
         self.event_intervals = None
         self.event_start_times = None
-        self.charge_max_constraint = None
-        self.discharge_min_constraint = None
+        self.der_dispatch_discharge_min_constraint = None
         self.energy_min_constraint = None
         self.qc = 0
 
@@ -113,14 +113,11 @@ class ResourceAdequacy(ValueStream):
 
         if self.dispmode:
             # create dispatch power constraint
-            # charge power should be 0, while discharge should be be the qualifying commitment for the times that correspond to the RA event
+            # net power should be be the qualifying commitment for the times that correspond to the RA event
 
-            self.charge_max_constraint = pd.Series(np.zeros(total_time_intervals), index=self.event_intervals,
-                                                   name='RA Charge Max (kW)')
-            self.discharge_min_constraint = pd.Series(np.repeat(self.qc, total_time_intervals), index=self.event_intervals,
+            self.der_dispatch_discharge_min_constraint = pd.Series(np.repeat(self.qc, total_time_intervals), index=self.event_intervals,
                                                       name='RA Discharge Min (kW)')
-            self.system_requirements += [Requirement('discharge', 'min', self.name, self.discharge_min_constraint),
-                                         Requirement('charge', 'max', self.name, self.charge_max_constraint)]
+            self.system_requirements += [Requirement('der dispatch discharge', 'min', self.name, self.der_dispatch_discharge_min_constraint)]
         else:
             # create energy reservation constraint
             qualifying_energy = self.qc * self.length
@@ -242,13 +239,13 @@ class ResourceAdequacy(ValueStream):
         """
         proforma = ValueStream.proforma_report(self, opt_years, apply_inflation_rate_func,
                                                fill_forward_func, results)
-        proforma[self.name + 'Capacity Payment'] = 0
+        proforma[self.name + ' Capacity Payment'] = 0
 
         for year in opt_years:
             proforma.loc[pd.Period(year=year, freq='y')] = self.qc * np.sum(self.capacity_rate)
         # apply inflation rates
         proforma = apply_inflation_rate_func(proforma, None, min(opt_years))
-
+        proforma = fill_forward_func(proforma, self.growth)
         return proforma
 
     def timeseries_report(self):
@@ -263,7 +260,7 @@ class ResourceAdequacy(ValueStream):
         report.loc[:, 'RA Event (y/n)'] = False
         report.loc[self.event_intervals, 'RA Event (y/n)'] = True
         if self.dispmode:
-            report = pd.merge(report, self.discharge_min_constraint, how='left', on='Start Datetime (hb)')
+            report = pd.merge(report, self.der_dispatch_discharge_min_constraint, how='left', on='Start Datetime (hb)')
         else:
             report = pd.merge(report, self.energy_min_constraint, how='left', on='Start Datetime (hb)')
         return report

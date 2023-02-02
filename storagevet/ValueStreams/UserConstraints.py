@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -36,8 +36,11 @@ from storagevet.ValueStreams.ValueStream import ValueStream
 import pandas as pd
 from storagevet.SystemRequirement import Requirement
 import storagevet.Library as Lib
+from storagevet.ErrorHandling import *
 import numpy as np
 
+VERY_LARGE_NUMBER = 2**32 - 1
+VERY_LARGE_NEGATIVE_NUMBER = -1 * VERY_LARGE_NUMBER
 
 class UserConstraints(ValueStream):
     """ User entered time series constraints. Each service will be daughters of the PreDispService class.
@@ -58,10 +61,10 @@ class UserConstraints(ValueStream):
         self.user_power = params['power']
         self.user_energy = params['energy']
         self.price = params['price']  # $/yr
-        self.charge_min_constraint = None
-        self.charge_max_constraint = None
-        self.discharge_min_constraint = None
-        self.discharge_max_constraint = None
+        self.poi_import_min_constraint = None
+        self.poi_import_max_constraint = None
+        self.poi_export_min_constraint = None
+        self.poi_export_max_constraint = None
         self.soe_min_constraint = None
         self.soe_max_constraint = None
 
@@ -91,22 +94,31 @@ class UserConstraints(ValueStream):
 
         """
         # set system requirements on power (make sure everything is positive, regardless of how user gave the values)
-        self.discharge_max_constraint = self.user_power.get('POI: Max Export (kW)')
-        if self.discharge_max_constraint is not None:
-            self.discharge_max_constraint = self.return_positive_values(self.discharge_max_constraint)
-            self.system_requirements.append(Requirement('discharge', 'max', self.name, self.discharge_max_constraint))
-        self.discharge_min_constraint = self.user_power.get('POI: Min Export (kW)')
-        if self.discharge_min_constraint is not None:
-            self.discharge_min_constraint = self.return_positive_values(self.discharge_min_constraint)
-            self.system_requirements.append(Requirement('discharge', 'min', self.name, self.discharge_min_constraint))
-        self.charge_max_constraint = self.user_power.get('POI: Max Import (kW)')
-        if self.charge_max_constraint is not None:
-            self.charge_max_constraint = self.return_positive_values(self.charge_max_constraint)
-            self.system_requirements.append(Requirement('charge', 'max', self.name, self.charge_max_constraint))
-        self.charge_min_constraint = self.user_power.get('POI: Min Import (kW)')
-        if self.charge_min_constraint is not None:
-            self.charge_min_constraint = self.return_positive_values(self.charge_min_constraint)
-            self.system_requirements.append(Requirement('charge', 'min', self.name, self.charge_min_constraint))
+        # NOTE: because of this, we handle zeroes in min constraints here (we substitute in very large negative values)
+        #       do not change any max constraints (those zeroes are important to control any no-export or no-import cases)
+        self.poi_export_max_constraint = self.user_power.get('POI: Max Export (kW)')
+        if self.poi_export_max_constraint is not None:
+            self.poi_export_max_constraint = self.return_positive_values(self.poi_export_max_constraint)
+            self.system_requirements.append(Requirement('poi export', 'max', self.name, self.poi_export_max_constraint))
+
+        self.poi_export_min_constraint = self.user_power.get('POI: Min Export (kW)')
+        if self.poi_export_min_constraint is not None:
+            self.poi_export_min_constraint = self.return_positive_values(self.poi_export_min_constraint)
+            self.poi_export_min_constraint[self.poi_export_min_constraint == 0] = VERY_LARGE_NEGATIVE_NUMBER
+            TellUser.info('In order for the POI: Min Export constraint to work, we modify values that are zero to be a very large negative number')
+            self.system_requirements.append(Requirement('poi export', 'min', self.name, self.poi_export_min_constraint))
+
+        self.poi_import_max_constraint = self.user_power.get('POI: Max Import (kW)')
+        if self.poi_import_max_constraint is not None:
+            self.poi_import_max_constraint = self.return_positive_values(self.poi_import_max_constraint)
+            self.system_requirements.append(Requirement('poi import', 'max', self.name, self.poi_import_max_constraint))
+
+        self.poi_import_min_constraint = self.user_power.get('POI: Min Import (kW)')
+        if self.poi_import_min_constraint is not None:
+            self.poi_import_min_constraint = self.return_positive_values(self.poi_import_min_constraint)
+            self.poi_import_min_constraint[self.poi_import_min_constraint == 0] = VERY_LARGE_NEGATIVE_NUMBER
+            TellUser.info('In order for the POI: Min Import constraint to work, we modify values that are zero to be a very large negative number')
+            self.system_requirements.append(Requirement('poi import', 'min', self.name, self.poi_import_min_constraint))
 
         # set system requirements on Energy
         self.soe_max_constraint = self.user_energy.get('Aggregate Energy Max (kWh)')
@@ -123,11 +135,24 @@ class UserConstraints(ValueStream):
             pertaining to this instance
 
         """
-        # add 'User-" to beginging of each column name
-        new_power_names = {original: f"{self.name}-{original}" for original in self.user_power.columns}
-        self.user_power.rename(columns=new_power_names)
-        new_energy_names = {original: f"{self.name}-{original}" for original in self.user_energy.columns}
-        self.user_energy.rename(columns=new_energy_names)
+        # use the altered system requirement constraints in the output time series
+        # NOTE: we display export values as the negative of what they are in the constraint,
+        #     since negative Net Power is actually positive Export Power
+        if self.poi_export_max_constraint is not None:
+            TellUser.info('For better alignment with "Net Power" in the output time series, we multiply POI: Max Export values by -1')
+            self.user_power['POI: Max Export (kW)'] = self.poi_export_max_constraint * -1
+        if self.poi_export_min_constraint is not None:
+            TellUser.info('For better alignment with "Net Power" in the output time series, we multiply POI: Min Export values by -1')
+            self.user_power['POI: Min Export (kW)'] = self.poi_export_min_constraint * -1
+        if self.poi_import_max_constraint is not None:
+            self.user_power['POI: Max Import (kW)'] = self.poi_import_max_constraint
+        if self.poi_import_min_constraint is not None:
+            self.user_power['POI: Min Import (kW)'] = self.poi_import_min_constraint
+        # add 'User Constraints' label to beginning of each column name
+        new_power_names = {original: f"{self.name} {original}" for original in self.user_power.columns}
+        self.user_power.rename(columns=new_power_names, inplace=True)
+        new_energy_names = {original: f"{self.name} {original}" for original in self.user_energy.columns}
+        self.user_energy.rename(columns=new_energy_names, inplace=True)
         # concat energy and power together
         power_df = self.user_power if not self.user_power.empty else None
         energy_df = self.user_energy if not self.user_energy.empty else None
@@ -155,6 +180,7 @@ class UserConstraints(ValueStream):
             proforma.loc[pd.Period(year=year, freq='y')] = self.price
         # apply inflation rates
         proforma = apply_inflation_rate_func(proforma, None, min(opt_years))
+        proforma = fill_forward_func(proforma, None)
         return proforma
 
     def update_yearly_value(self, new_value: float):
@@ -177,7 +203,7 @@ class UserConstraints(ValueStream):
         Returns: Series, with its values changed
 
         """
-        if (array >= 0).any():
+        if (array > 0).any():
             return array
         else:
             return -1*array

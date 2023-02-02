@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -61,18 +61,18 @@ class EnergyStorage(DER):
         # note: these should never be changed in simulation (i.e from degradation)
         self.technology_type = 'Energy Storage System'
         try:
-          self.rte = params['rte']/100
+          self.rte = params['rte']/1e2
         except KeyError:
           self.rte = 1/params['energy_ratio']
-        self.sdr = params['sdr']/100
+        self.sdr = params['sdr']/1e2
         self.ene_max_rated = params['ene_max_rated']
         self.dis_max_rated = params['dis_max_rated']
         self.dis_min_rated = params['dis_min_rated']
         self.ch_max_rated = params['ch_max_rated']
         self.ch_min_rated = params['ch_min_rated']
-        self.ulsoc = params['ulsoc']/100
-        self.llsoc = params['llsoc']/100
-        self.soc_target = params['soc_target']/100
+        self.ulsoc = params['ulsoc']/1e2
+        self.llsoc = params['llsoc']/1e2
+        self.soc_target = params['soc_target']/1e2
 
         self.fixedOM_perKW = params['fixedOM']  # $/kW
         self.variable_om = params['OMexpenses']*1e-3  # $/MWh * 1e-3 = $/kWh
@@ -445,7 +445,7 @@ class EnergyStorage(DER):
                 energy_rating = self.ene_max_rated
 
             results[tech_id + ' SOC (%)'] = \
-                self.variables_df['ene'] / energy_rating
+                (self.variables_df['ene'] / energy_rating) * 1e2
 
         return results
 
@@ -491,7 +491,7 @@ class EnergyStorage(DER):
 
         """
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
-        if self.variables_df.empty:
+        if self.variables_df.index.empty:
             return pro_forma
         optimization_years = self.variables_df.index.year.unique()
         tech_id = self.unique_tech_id()

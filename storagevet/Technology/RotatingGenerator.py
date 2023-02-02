@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -236,7 +236,7 @@ class RotatingGenerator(DER):
         """
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
         tech_id = self.unique_tech_id()
-        if self.variables_df.empty:
+        if self.variables_df.index.empty:
             return pro_forma
         optimization_years = self.variables_df.index.year.unique()
 

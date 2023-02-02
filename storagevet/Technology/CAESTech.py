@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -92,7 +92,7 @@ class CAES(EnergyStorage):
 
     def proforma_report(self, apply_inflation_rate_func, fill_forward_func, results):
         pro_forma = super().proforma_report(apply_inflation_rate_func, fill_forward_func, results)
-        if self.variables_df.empty:
+        if self.variables_df.index.empty:
             return pro_forma
         tech_id = self.unique_tech_id()
         optimization_years = self.variables_df.index.year.unique()

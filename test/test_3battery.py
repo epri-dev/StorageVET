@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -43,8 +43,6 @@ import numpy as np
 from test.TestingLib import *
 
 DIR = Path('./test/model_params/')
-JSON = '.json'
-CSV = '.csv'
 
 
 def test_da_month():
@@ -75,7 +73,6 @@ def test_da_month_degradation_battery_replaced_during_optimization():
     assert_ran(DIR / f"010-degradation_test{CSV}")
 
 
-@pytest.mark.slow
 def test_da_fr_month():
     assert_ran(DIR / f'001-DA_FR_battery_month{CSV}')
 
@@ -149,6 +146,8 @@ class TestDayAheadDemandResponse:
         self.results_instance = self.results.instances[0]
         timeseries = self.results_instance.time_series_data
         self.discharge_constraint = timeseries.loc[:, "DR Discharge Min (kW)"]
+        self.battery_discharge = timeseries.loc[:, 'BATTERY: 2mw-5hr Discharge (kW)']
+        self.battery_charge = timeseries.loc[:, 'BATTERY: 2mw-5hr Charge (kW)']
 
     def test_services_were_part_of_problem(self):
         assert_usecase_considered_services(self.results, ['DA', 'DR'])
@@ -172,6 +171,8 @@ class TestDayAheadDemandResponse:
     def test_no_events_occured_in_non_active_months(self):
         assert np.all(self.discharge_constraint[~self.discharge_constraint.index.month.isin([6,7,8,9])] == 0)
 
+    def test_discharge_constraint_is_met(self):
+        assert np.all((self.battery_discharge - self.battery_charge) >= self.discharge_constraint)
 
 class TestDayOfDemandResponse:
     """ Day Ahead Demand Response program model"""
@@ -203,3 +204,32 @@ class TestDayOfDemandResponse:
         soe_start = battery_state_of_energy[(self.discharge_constraint.values) & (self.discharge_constraint.index.hour == 10)]
         assert np.all(soe_start[soe_start.index.month == 8] >= 80)
 
+class TestEnergyConstraints:
+    """ Multiple System Constraints on Energy: Backup Energy (a Monthyl Min Constraint)
+            and User Constraints on Energy (Min and Max)
+    """
+
+    def setup_class(self):
+        self.results = run_case(DIR / f'055-DA_Battery_Backup_User{CSV}')
+        self.results_instance = self.results.instances[0]
+        timeseries = self.results_instance.time_series_data
+        self.backup = timeseries.loc[:, "Backup Energy Reserved (kWh)"]
+        self.soe = timeseries.loc[:, 'BATTERY: ess1 State of Energy (kWh)']
+        self.agg_soe = timeseries.loc[:, 'Aggregated State of Energy (kWh)']
+        self.user_energy_max = timeseries.loc[:, 'User Constraints Aggregate Energy Max (kWh)']
+        self.user_energy_min = timeseries.loc[:, 'User Constraints Aggregate Energy Min (kWh)']
+
+    def test_services_were_part_of_problem(self):
+        assert_usecase_considered_services(self.results, ['DA', 'Backup', 'User'])
+
+    def test_max_energy_constraint_is_met(self):
+        assert np.all(self.soe <= self.user_energy_max)
+        assert np.all(self.agg_soe <= self.user_energy_max)
+
+    def test_min_energy_constraint_is_met(self):
+        assert np.all(self.soe >= self.user_energy_min)
+        assert np.all(self.agg_soe >= self.user_energy_min)
+
+    def test_backup_energy_constraint_is_met(self):
+        assert np.all(self.soe >= self.backup)
+        assert np.all(self.agg_soe >= self.backup)

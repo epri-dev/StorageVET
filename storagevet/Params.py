@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -391,6 +391,12 @@ class Params:
                                            value=value,
                                            allowed_values="Something other than 'nan'")
                         continue
+                    # check if value is None
+                    if value is None:
+                        cls.report_warning("not allowed", tag=name, key=schema_key_name,
+                                            value=value,
+                                            allowed_values="Something other than 'None' or 'null'")
+                        continue
                     # convert to correct data type
                     intended_type = schema_key_attr.get('type')
                     # fills dictionary with the base case (this will serve as the template case)
@@ -491,6 +497,12 @@ class Params:
                             cls.report_warning("not allowed", tag=name, key=schema_key_name,
                                                value=value,
                                                allowed_values="Something other than 'nan'")
+                        continue
+                    # check if value is None
+                    if value is None:
+                        cls.report_warning("not allowed", tag=name, key=schema_key_name,
+                                            value=value,
+                                            allowed_values="Something other than 'None' or 'null'")
                         continue
                     # convert to correct data type
                     intended_type = schema_key_attr.get('type')
@@ -1174,16 +1186,24 @@ class Params:
         opt_years = scenario['opt_years']
 
         # find frequency (indicated by user's dt input)
-        freq = self.stringify_delta_time(dt)
+        freq, dt_exact = self.stringify_delta_time(dt)
+        # make sure freq is not an empty string, otherwise report and raise error immediately
+        if not freq:
+            self.record_input_error(
+                f'The timestep frequency cannot be determined from the input value of dt ({dt}). ' +
+                'Please use a number representing a regular fraction of an hour. ' +
+                'Options are 1 (1 hour), ' +
+                '0.5 (30 minutes), 0.25 (15 minutes), 0.166 (10 minutes), ' +
+                '0.083 (5 minutes), or 0.016 (1 minute).')
+            raise ModelParameterError(
+                "The model parameter has some errors associated to it. Please fix and rerun.")
+        else:
+            TellUser.info(f'The timestep frequency was set to "{freq}" based on dt = {dt} hours')
         scenario['frequency'] = freq
         # set dt to be exactly dt
-        if freq == '5min':
-            dt = 5 / 60
-        if freq == '1min':
-            dt = 1 / 60
-        scenario['dt'] = dt
+        scenario['dt'] = dt_exact
         # process time series and save it in place of the raw data
-        time_series = self.process_time_series(raw_time_series, freq, dt, opt_years)
+        time_series = self.process_time_series(raw_time_series, freq, dt_exact, opt_years)
         scenario["time_series"] = time_series
         # report on any missing values from each time series
         scenario["time_series_nan_count"] = self.count_nans_time_series(time_series)
@@ -1191,10 +1211,14 @@ class Params:
         monthly_data = self.process_monthly(raw_monthly_data, opt_years)
         scenario["monthly_data"] = monthly_data
 
-        if scenario['end_year'].year < scenario['start_year'].year:
-            # make sure that the project start year is before the project end year
-            self.record_input_error(
-                'end_year < start_year. end_year should be later than start_year')
+        # make sure that the project start year is before the project end year
+        # ignore this check if dervet's analysis_horizon_mode is not set to 1
+        # (in those cases, end_year is redefined downstream based on expected lifetimes)
+        if self.Finance.get('analysis_horizon_mode', 1) == 1:
+            if scenario['end_year'].year < scenario['start_year'].year:
+                self.record_input_error(
+                    f"end_year ({scenario['end_year'].year}) < start_year " +
+                    f"({scenario['start_year'].year}). end_year should be later than start_year.")
         # determine if mpc
         # self.Scenario['mpc'] = (self.Scenario['n_control'] != 0)
         scenario['mpc'] = False
@@ -1210,28 +1234,38 @@ class Params:
 
     @staticmethod
     def stringify_delta_time(dt):
-        """ Based on the value of DT, return the frequency that the pandas data time index
-        should take
+        """ Based on the value of the input parameter dt, return the frequency that the pandas data time index
+        should take, along with the exact decimal floating point value
 
         Args:
             dt (float): user reported time-step of time series data frame
 
-        Returns: string representation of the frequency of the time series index
+        Returns: a string representation of the frequency of the time series index,
+                 and the exact floating point representation of dt
 
         """
         frequency = ''
+        dt_exact = 0.0
         dt_truncated = truncate_float(dt)
         if dt_truncated == 1.0:
             frequency = 'H'
+            dt_exact = 60 / 60
         if dt_truncated == 0.5:
             frequency = '30min'
-        if dt_truncated == .25:
+            dt_exact = 30 / 60
+        if dt_truncated == 0.25:
             frequency = '15min'
-        if dt_truncated == .083:
+            dt_exact = 15 / 60
+        if dt_truncated == 0.166 or dt_truncated == 0.167:
+            frequency = '10min'
+            dt_exact = 10 / 60
+        if dt_truncated == 0.083:
             frequency = '5min'
-        if dt_truncated == .016:
+            dt_exact = 5 / 60
+        if dt_truncated == 0.016 or dt_truncated == 0.017:
             frequency = '1min'
-        return frequency
+            dt_exact = 1 / 60
+        return frequency, dt_exact
 
     def get_single_series(self, ts, column_name, nan_count, description=None, bypass_key_error=False, allow_nans=False):
         # if the column name does not exist in the data, an error ensues
@@ -1277,7 +1311,7 @@ class Params:
         Args:
             time_series (DataFrame): raw time series data frame.
             freq (str): frequency that the date time index should take
-            dt
+            dt (exact floating point value)
             opt_years
 
         Returns: a DataFrame with the index beginning at hour 0, if an there is an error with the
@@ -1305,9 +1339,8 @@ class Params:
         if len(time_series) != expected_data_length:
             self.record_timeseries_data_error(
                 f"The expected data length does not match with the length of the given data " +
-                f"({len(time_series)}).\nWe detected {yr_included.values} are included, and " +
-                f"{[data_year for data_year in yr_included if is_leap_yr(data_year)]}" +
-                f" are leap years --> sum({hours_in_years}) / {dt} = {expected_data_length}")
+                f"({len(time_series)}). The expected data length (for {freq} data) is " +
+                f"sum({hours_in_years}) / {dt} = {expected_data_length}")
             return time_series
 
         # replace time_series index with pandas formatted datetime index

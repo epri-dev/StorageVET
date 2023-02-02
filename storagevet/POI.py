@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -114,6 +114,7 @@ class POI:
             aggregation of generation from variable resources
             aggregation of generation from other sources
             total net power from ESSs
+            net power from dispatchable DERs (not Intermittent Resources, and not Load)
             total state of energy stored in the system
             aggregation of all the power flows into the POI
             aggregation of all the power flows out if the POI
@@ -127,6 +128,7 @@ class POI:
         var_gen_sum = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')  # at POI
         gen_sum = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')
         tot_net_ess = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')
+        der_dispatch_net_power = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')
         total_soe = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')
         agg_power_flows_in = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')  # at POI
         agg_power_flows_out = cvx.Parameter(value=np.zeros(opt_var_size), shape=opt_var_size, name='POI-Zero')  # at POI
@@ -137,6 +139,7 @@ class POI:
 
         for der_instance in self.active_ders:
             # add the state of the der's power over time & stored energy over time to system's
+            # these agg_power variables are used with POI constraints
             agg_power_flows_in += (der_instance.get_charge(mask) - der_instance.get_discharge(mask))
             agg_power_flows_out += (der_instance.get_discharge(mask) - der_instance.get_charge(mask))
 
@@ -145,35 +148,37 @@ class POI:
             if der_instance.technology_type == 'Energy Storage System':
                 total_soe += der_instance.get_state_of_energy(mask)
                 tot_net_ess += der_instance.get_net_power(mask)
+                # auxiliary load (hp) for a Battery will contribute to agg_power variables
+                #   in a similar manner to SiteLoad (add to flow_in and subtract from flow_out)
+                try:
+                    aux_load = der_instance.hp
+                    agg_power_flows_in += aux_load
+                    agg_power_flows_out -= aux_load
+                except AttributeError:
+                    pass
             if der_instance.technology_type == 'Generator':
                 gen_sum += der_instance.get_discharge(mask)
             if der_instance.technology_type == 'Intermittent Resource':
                 var_gen_sum += der_instance.get_discharge(mask)
+            if der_instance.technology_type in ['Energy Storage System', 'Generator']:
+                der_dispatch_net_power += der_instance.get_net_power(mask)
 
-        ##NOTE: these print statements disclose info for get_state_of_system Results
-        #print(f'agg_power_flows_in ({agg_power_flows_in.size}): {agg_power_flows_in.value}')
-        #print(f'agg_power_flows_out ({agg_power_flows_out.size}): {agg_power_flows_out.value}')
+        ##NOTE: these print statements disclose info for get_state_of_system cvx Parameters
+        #print(f'load_sum:               ({load_sum})')
+        #print(f'var_gen_sum:            ({var_gen_sum})')
+        #print(f'gen_sum:                ({gen_sum})')
+        #print(f'tot_net_ess:            ({tot_net_ess})')
+        #print(f'der_dispatch_net_power: ({der_dispatch_net_power})')
+        #print(f'total_soe:              ({total_soe})')
+        #print(f'agg_power_flows_in:     ({agg_power_flows_in.name()})')
+        #print(f'agg_power_flows_out:    ({agg_power_flows_out.name()})')
 
-        return load_sum, var_gen_sum, gen_sum, tot_net_ess, total_soe, agg_power_flows_in, agg_power_flows_out, agg_steam_heating_power, agg_hotwater_heating_power, agg_thermal_cooling_power
+        return load_sum, var_gen_sum, gen_sum, tot_net_ess, der_dispatch_net_power, total_soe, agg_power_flows_in, agg_power_flows_out, agg_steam_heating_power, agg_hotwater_heating_power, agg_thermal_cooling_power
 
     def combined_discharge_rating_for_reliability(self):
         """ Used to create the Reliability power constraint.
 
         Returns: combined rating of ESS and ICE  in the system
-
-        """
-        combined_rating = 0
-        for der_instance in self.active_ders:
-            if der_instance.technology_type == 'Energy Storage System':
-                combined_rating += der_instance.dis_max_rated
-            if der_instance.technology_type == 'Generator':
-                combined_rating += der_instance.rated_power
-        return combined_rating
-
-    def load_balance_constraint_for_reliability(self):
-        """ Used to create the Reliability power constraint.
-
-        Returns: combined rating of ESS and ICE in the system
 
         """
         combined_rating = 0
@@ -243,15 +248,17 @@ class POI:
             constraint_list += [cvx.NonPos(-agg_inv_max - total_pv_out_dc + net_ess_power)]
 
         # power import/export constraints
+        # NOTE: power_in is agg_p_in (defined in self.get_state_of_system)
+        # NOTE: power_out is agg_p_out (defined in self.get_state_of_system)
         if self.apply_poi_constraints:
-            # -(power_in) >= max_import
-            constraint_list += [cvx.NonPos(self.max_import + power_in + (-1)*power_out)]
+            # (agg_p_in) <= -max_import
+            constraint_list += [cvx.NonPos(self.max_import + power_in)]
 
-            # max_export >= power_out
+            # (agg_p_out) <= max_export
             # NOTE: with active_load_dump True, we do not include this constraint
             #   active_load_dump only occurs in DER-VET
             if not self.disable_max_export_poi_constraint():
-                constraint_list += [cvx.NonPos(power_out + (-1)*power_in - self.max_export)]
+                constraint_list += [cvx.NonPos(power_out + -1 * self.max_export)]
 
         return obj_expression, constraint_list
 
@@ -330,6 +337,14 @@ class POI:
             if der_instance.technology_type == 'Energy Storage System':
                 results.loc[:, 'Total Storage Power (kW)'] += results[f'{der_instance.unique_tech_id()} Power (kW)']
                 results.loc[:, 'Aggregated State of Energy (kWh)'] += results[f'{der_instance.unique_tech_id()} State of Energy (kWh)']
+                # add any battery auxiliary load (hp) to the total load
+                try:
+                    auxiliary_load = der_instance.hp
+                    if auxiliary_load > 0:
+                        TellUser.info(f'adding auxiliary load ({auxiliary_load} from ESS: {der_instance.name} to the Total Load')
+                        results.loc[:, 'Total Load (kW)'] += auxiliary_load
+                except AttributeError:
+                    pass
             if der_instance.technology_type == 'Load':
                 results.loc[:, 'Total Load (kW)'] += results[f'{der_instance.unique_tech_id()} Original Load (kW)']
             report = der_instance.monthly_report()

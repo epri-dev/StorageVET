@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -341,22 +341,13 @@ class Scenario(object):
             # setup + run optimization then return optimal objective costs
             functions, constraints, sub_index = self.set_up_optimization(opt_period)
 
-#            #NOTE: these print statements reveal the final constraints and costs for debugging
-#            print(f'\nFinal constraints ({len(constraints)}):')
-#
-#            #NOTE: more detail on constraints
-#            for i, c in enumerate(constraints):
-#                print(f'constraint {i}: {c.name()}')
-#                print(f"  variables: {', '.join([j.name() for j in c.variables()])}")
-#                print('  parameters:')
-#                for p in c.parameters():
-#                    print(f'    {p.name()} = {p.value}')
-#                print()
-#
-#            print('\n'.join([k.name() for k in constraints]))
-#            print(f'\ncosts ({len(functions)}):')
-#            print('\n'.join([f'{k}: {v}' for k, v in functions.items()]))
-#            print()
+            ##NOTE: these print statements reveal the final constraints and costs for debugging
+            #print(f'\nFinal constraints ({len(constraints)}):')
+            #print(f'\nconstraints ({len(constraints)}):')
+            #print('\n'.join([f'{i}: {c}' for i, c in enumerate(constraints)]))
+            #print(f'\ncosts ({len(functions)}):')
+            #print('\n'.join([f'{k}: {v}' for k, v in functions.items()]))
+            #print()
 
             cvx_problem, obj_expressions, cvx_error_msg = self.solve_optimization(functions, constraints)
             self.save_optimization_results(opt_period, sub_index, cvx_problem, obj_expressions, cvx_error_msg)
@@ -388,7 +379,7 @@ class Scenario(object):
         self.service_agg.initialize_optimization_variables(opt_var_size)
 
         # grab values from the POI that is required to know calculate objective functions and constraints
-        load_sum, var_gen_sum, gen_sum, tot_net_ess, total_soe, agg_p_in, agg_p_out, agg_steam, agg_hotwater, agg_cold = self.poi.get_state_of_system(mask)
+        load_sum, var_gen_sum, gen_sum, tot_net_ess, der_dispatch_net_power, total_soe, agg_p_in, agg_p_out, agg_steam, agg_hotwater, agg_cold = self.poi.get_state_of_system(mask)
         combined_rating = self.poi.combined_discharge_rating_for_reliability()
 
         # set up controller first to collect and provide inputs to the POI
@@ -402,36 +393,70 @@ class Scenario(object):
         consts += temp_consts
 
         # add system requirement constraints (get the subset of data that applies to the current optimization window)
-        discharge_min = self.system_requirements.get('discharge min')
-        if discharge_min is not None:
-            discharge_min_value = discharge_min.get_subset(mask)
-            sub_discharge_min_req = cvx.Parameter(shape=opt_var_size, value=discharge_min_value, name='SysDisMinReq') * -1
-            consts += [cvx.NonPos(sub_discharge_min_req - (tot_net_ess + gen_sum))]
-        discharge_max = self.system_requirements.get('discharge max')
-        if discharge_max is not None:
-            discharge_max_value = discharge_max.get_subset(mask)
-            sub_discharge_max_req = cvx.Parameter(shape=opt_var_size, value=discharge_max_value, name='SysDisMaxReq')
-            consts += [cvx.NonPos((tot_net_ess + gen_sum) - sub_discharge_max_req)]
-        charge_max = self.system_requirements.get('charge max')
-        if charge_max is not None:
-            charge_max_value = charge_max.get_subset(mask)
-            sub_charge_max_req = cvx.Parameter(shape=opt_var_size, value=charge_max_value, name='SysChMaxReq')
-            consts += [cvx.NonPos((tot_net_ess + gen_sum)*-1 - sub_charge_max_req)]
-        charge_min = self.system_requirements.get('charge min')
-        if charge_min is not None:
-            charge_min_value = charge_min.get_subset(mask)
-            sub_charge_min_req = cvx.Parameter(shape=opt_var_size, value=charge_min_value, name='SysChMinReq')
-            consts += [cvx.NonPos(sub_charge_min_req + (tot_net_ess + gen_sum)*-1)]
-        energy_min = self.system_requirements.get('energy min')
-        if energy_min is not None:
-            energy_min_value = energy_min.get_subset(mask)
-            sub_energy_min_req = cvx.Parameter(shape=opt_var_size, value=energy_min_value, name='SysEneMinReq')
-            consts += [cvx.NonPos(sub_energy_min_req - total_soe)]
-        energy_max = self.system_requirements.get('energy max')
-        if energy_max is not None:
-            energy_max_value = energy_max.get_subset(mask)
-            sub_energy_max_req = cvx.Parameter(shape=opt_var_size, value=energy_max_value, name='SysEneMaxReq')
-            consts += [cvx.NonPos(total_soe - sub_energy_max_req)]
+        for req_name, requirement in self.system_requirements.items():
+
+            # NOTE: der_dispatch_net_power is (charge - discharge) for each DER that can dispatch power
+            #           (not Intermittent Resources, and not Load)
+            if req_name == 'der dispatch discharge min':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='DerDispatchDisMinReq')
+                consts += [cvx.NonPos(req_parameter + der_dispatch_net_power)]
+                continue
+
+            #if req_name == 'der dispatch charge max':
+            #    req_value = requirement.get_subset(mask)
+            #    #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+            #    req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='DerDispatchChMaxReq')
+            #    consts += [cvx.NonPos(der_dispatch_net_power + -1 * req_parameter)]
+            #    continue
+
+            if req_name == 'poi export min':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='PoiExportMinReq')
+                consts += [cvx.NonPos(req_parameter + -1 * agg_p_out)]
+                continue
+
+            if req_name == 'poi export max':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='PoiExportMaxReq')
+                consts += [cvx.NonPos(agg_p_out + -1 * req_parameter)]
+                continue
+
+            if req_name == 'poi import min':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='PoiImportMinReq')
+                consts += [cvx.NonPos(req_parameter + -1 * agg_p_in)]
+                continue
+
+            if req_name == 'poi import max':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='PoiImportMaxReq')
+                consts += [cvx.NonPos(agg_p_in + -1 * req_parameter)]
+                continue
+
+            if req_name == 'energy min':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='SysEneMinReq')
+                consts += [cvx.NonPos(req_parameter + -1 * total_soe)]
+                continue
+
+            if req_name == 'energy max':
+                req_value = requirement.get_subset(mask)
+                #print(f'{req_name} (range):\n{req_value.min()} -- {req_value.max()}')
+                req_parameter = cvx.Parameter(shape=opt_var_size, value=req_value, name='SysEneMaxReq')
+                consts += [cvx.NonPos(total_soe + -1 * req_parameter)]
+                continue
+
+            # if this part of the method is reached, we have failed to recognize a system requirement and should fail
+            error_message = f'This system requirement: "{req_name}" is not properly specified by the Scenario class. Cannot continue.'
+            TellUser.error(error_message)
+            raise SystemRequirementsError(error_message)
 
         res_dis_d, res_dis_u, res_ch_d, res_ch_u, ue_prov, ue_stor, worst_ue_pro, worst_ue_sto = self.service_agg.aggregate_reservations(mask)
         sch_dis_d, sch_dis_u, sch_ch_d, sch_ch_u, ue_decr, ue_incr, total_dusoe = self.poi.aggregate_p_schedules(mask)

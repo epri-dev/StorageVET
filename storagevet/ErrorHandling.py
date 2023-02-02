@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -46,6 +46,10 @@ class SolverInfeasibleError(Exception):
 
 
 class SolverUnboundedError(Exception):
+    pass
+
+
+class SystemRequirementsError(Exception):
     pass
 
 

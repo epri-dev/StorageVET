@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -38,7 +38,8 @@ import numpy as np
 import pandas as pd
 
 
-VERY_LARGE_NUMBER = 2**64 - 1
+VERY_LARGE_NUMBER = 2**32 - 1
+VERY_LARGE_NEGATIVE_NUMBER = -1 * VERY_LARGE_NUMBER
 
 
 class Requirement:
@@ -90,10 +91,15 @@ class SystemRequirement:
         self.owner = pd.Series(np.repeat('null', size), index=index)  # records which valuestream(s) set the current VALUE
 
         # records the value that would ensure all past updated requirements would also be met
+        #   this is needed because of the way that system requirements are created.
+        #   you start with all huge or hugely negative values and then values become updated
+        #   the update() method is used to build values into these requirements
+        #   and lets you handle multiple system requirements of the same type,
+        #   without creating a new constraint for each one.
+        if self.is_min:
+            self.value = pd.Series(np.repeat(VERY_LARGE_NEGATIVE_NUMBER, size), index=index)
         if self.is_max:
             self.value = pd.Series(np.repeat(VERY_LARGE_NUMBER, size), index=index)
-        if self.is_min:
-            self.value = pd.Series(np.zeros(size), index=index)
 
     def update(self, requirement):
         """ Update constraint values for the times that were included in. Also update the list tracking which

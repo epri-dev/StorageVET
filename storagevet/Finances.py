@@ -1,5 +1,5 @@
 """
-Copyright (c) 2022, Electric Power Research Institute
+Copyright (c) 2023, Electric Power Research Institute
 
  All rights reserved.
 
@@ -427,7 +427,7 @@ class Financial:
             escalation_rate = self.inflation_rate
         # find max year in index (there might be string in index so we find it by hand)
         for yr in df.index:
-            if type(yr) == str:
+            if isinstance(yr, str):
                 continue
             t = yr.year - base_year
             df.loc[yr, :] = df.loc[yr, :] * ((1 + escalation_rate) ** t)
